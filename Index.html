@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Painel — Técnico de Campo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #0a0e12;
+    --bg-elev: #11161d;
+    --bg-card: #151b23;
+    --bg-card-hover: #1a212a;
+    --border: #232b35;
+    --border-soft: #1b222b;
+    --text: #eaf0f5;
+    --text-soft: #9aa7b5;
+    --text-mute: #5d6b7a;
+    --accent: #26d9c9;
+    --accent-dim: rgba(38,217,201,0.14);
+    --good: #34d399;
+    --good-dim: rgba(52,211,153,0.14);
+    --warn: #f2b84b;
+    --warn-dim: rgba(242,184,75,0.14);
+    --crit: #f0576b;
+    --crit-dim: rgba(240,87,107,0.15);
+    --radius: 14px;
+    --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1100px 500px at 12% -10%, rgba(38,217,201,0.08), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(144,137,242,0.06), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:36px 22px 80px;}
+  .wrap.wide{max-width:920px;}
+  a{color:var(--accent);}
+
+  .eyebrow{
+    font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:10px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);animation:pulse 2.4s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){ .eyebrow .dot{animation:none;} }
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  h1{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,3.4vw,32px);margin:0 0 6px;letter-spacing:-0.02em;}
+  .subtitle{color:var(--text-soft);font-size:14px;max-width:560px;line-height:1.5;}
+
+  /* ---------- Login card ---------- */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+  .login-card{
+    width:100%;max-width:420px;background:var(--bg-card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:32px 28px;position:relative;
+  }
+  .login-card .lockup{text-align:center;margin-bottom:22px;}
+  .login-card .lockup h1{font-size:20px;margin-bottom:4px;}
+  .login-card .lockup p{color:var(--text-mute);font-size:12.5px;}
+  label{display:block;font-size:11.5px;color:var(--text-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;margin-top:16px;}
+  label:first-of-type{margin-top:0;}
+  .field-wrap{position:relative;}
+  input[type="text"], input[type="password"]{
+    width:100%;background:var(--bg-elev);border:1px solid var(--border);color:var(--text);
+    border-radius:9px;padding:11px 13px;font-family:var(--font-body);font-size:14px;
+  }
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  .suggest-list{
+    position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--bg-elev);
+    border:1px solid var(--border);border-radius:9px;max-height:220px;overflow-y:auto;z-index:5;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  }
+  .suggest-list button{
+    display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:9px 13px;font-family:var(--font-body);font-size:13.5px;cursor:pointer;
+  }
+  .suggest-list button:hover, .suggest-list button.active{background:var(--bg-card-hover);color:var(--accent);}
+  .suggest-list .g{color:var(--text-mute);font-size:11px;margin-left:6px;}
+
+  .btn-primary{
+    width:100%;margin-top:20px;background:var(--accent);color:#05201d;border:none;border-radius:9px;
+    padding:12px 14px;font-family:var(--font-body);font-weight:600;font-size:14px;cursor:pointer;
+    transition:transform .1s ease, opacity .15s ease;
+  }
+  .btn-primary:hover{transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+  .btn-link{
+    width:100%;margin-top:10px;background:none;border:none;color:var(--text-mute);font-size:12.5px;
+    cursor:pointer;text-decoration:underline;padding:6px;
+  }
+  .btn-link:hover{color:var(--text-soft);}
+
+  .msg{font-size:12.5px;border-radius:8px;padding:10px 12px;margin-top:14px;line-height:1.5;}
+  .msg.err{background:var(--crit-dim);color:#ffb3bd;border:1px solid rgba(240,87,107,0.3);}
+  .msg.ok{background:var(--good-dim);color:#a7f3d4;border:1px solid rgba(52,211,153,0.3);}
+  .msg.info{background:var(--accent-dim);color:#a8f2ec;border:1px solid rgba(38,217,201,0.3);}
+
+  .hint-small{font-size:11.5px;color:var(--text-mute);margin-top:6px;line-height:1.5;}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(234,240,245,0.25);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Dashboard ---------- */
+  #dashboard{display:none;}
+  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px;}
+  .logout-btn{
+    background:var(--bg-card);border:1px solid var(--border);color:var(--text-soft);font-size:12.5px;
+    padding:8px 14px;border-radius:9px;cursor:pointer;white-space:nowrap;
+  }
+  .logout-btn:hover{color:var(--text);border-color:#2c3644;}
+
+  .score-card{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px 24px;margin-bottom:22px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+    border-left:3px solid var(--gcolor, var(--accent));
+  }
+  .score-card .score{font-family:var(--font-mono);font-weight:700;font-size:46px;line-height:1;}
+  .score-card .score-label{font-size:11.5px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin-top:6px;}
+  .score-card .compare{font-size:12.5px;color:var(--text-soft);line-height:1.9;}
+  .score-card .compare b{color:var(--text);font-family:var(--font-mono);}
+  .tier-good{color:var(--good);} .tier-warn{color:var(--warn);} .tier-crit{color:var(--crit);} .tier-none{color:var(--text-mute);}
+
+  .section-title{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 14px;gap:12px;flex-wrap:wrap;}
+  .section-title h2{font-family:var(--font-display);font-size:16.5px;margin:0;font-weight:600;}
+  .section-title .hint{font-size:12px;color:var(--text-mute);}
+
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px 20px;margin-bottom:24px;}
+
+  .ind-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:13.5px;gap:10px;}
+  .ind-row .iname{color:var(--text-soft);}
+  .ind-row .ival{font-family:var(--font-mono);font-weight:600;color:var(--text);white-space:nowrap;}
+  .ind-row .ival .meta-note{color:var(--text-mute);font-weight:400;font-size:11.5px;margin-left:4px;}
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;vertical-align:middle;}
+  .status-dot.green{background:var(--good);box-shadow:0 0 6px var(--good);}
+  .status-dot.amber{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+  .status-dot.red{background:var(--crit);box-shadow:0 0 6px var(--crit);}
+  .ind-bar-track{background:var(--border-soft);height:5px;border-radius:3px;margin:0 0 6px;overflow:hidden;}
+  .ind-bar-fill{height:100%;border-radius:3px;}
+  .ind-bar-fill.green{background:var(--good);} .ind-bar-fill.amber{background:var(--warn);} .ind-bar-fill.red{background:var(--crit);}
+
+  .vol-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .vol-item{background:var(--bg-elev);border:1px solid var(--border);border-radius:9px;padding:12px 8px;text-align:center;}
+  .vol-item .n{font-family:var(--font-mono);font-weight:700;font-size:19px;line-height:1.1;}
+  .vol-item .l{font-size:9.5px;color:var(--text-mute);margin-top:5px;text-transform:uppercase;letter-spacing:.03em;}
+  .vol-item.total{border-color:var(--accent);}
+  .vol-item.total .n{color:var(--accent);}
+  @media (max-width:480px){ .vol-grid{grid-template-columns:repeat(2,1fr);} }
+
+  .chart-wrap{height:260px;}
+
+  footer{margin-top:36px;color:var(--text-mute);font-size:11.5px;text-align:center;line-height:1.7;}
+  footer code{font-family:var(--font-mono);color:var(--text-soft);}
+
+  /* ---------- Admin-only: overview & detail ---------- */
+  #admin-dashboard{display:none;}
+  #admin-dashboard .wrap{max-width:1240px;}
+  .banner{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--border);border:1px solid var(--border);border-radius:var(--radius);
+    overflow:hidden;margin-bottom:34px;
+  }
+  .banner .cell{background:var(--bg-elev);padding:16px 18px;}
+  .banner .label{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+  .banner .value{font-family:var(--font-mono);font-size:22px;font-weight:600;color:var(--text);}
+  .banner .value.accent{color:var(--accent);}
+  @media (max-width:820px){ .banner{grid-template-columns:repeat(2,1fr);} }
+
+  .gestor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:36px;}
+  .gestor-card{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px 20px 18px;cursor:pointer;text-align:left;position:relative;overflow:hidden;
+    transition:transform .15s ease, background .15s ease, border-color .15s ease;
+    border-left:3px solid var(--gcolor);width:100%;font-family:inherit;
+  }
+  .gestor-card:hover{background:var(--bg-card-hover);transform:translateY(-2px);border-color:#2c3644;}
+  .gestor-card .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .gestor-card .gname{font-family:var(--font-display);font-weight:600;font-size:16.5px;color:var(--text);}
+  .gestor-card .gname small{display:block;font-family:var(--font-body);font-weight:400;color:var(--text-mute);font-size:11.5px;margin-top:2px;}
+  .gestor-card .headcount{font-family:var(--font-mono);font-size:11px;color:var(--text-soft);background:var(--bg-elev);border:1px solid var(--border);padding:3px 8px;border-radius:20px;}
+  .gestor-card .composite-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:16px;}
+  .gestor-card .composite{font-family:var(--font-mono);font-size:36px;font-weight:600;line-height:1;}
+  .gestor-card .composite-label{font-size:11px;color:var(--text-mute);padding-bottom:5px;}
+  .mini-metrics{display:flex;flex-direction:column;gap:8px;}
+  .mini-metric{display:grid;grid-template-columns:96px 1fr 40px;align-items:center;gap:8px;}
+  .mini-metric .mlabel{font-size:11px;color:var(--text-soft);}
+  .mini-metric .mval{font-family:var(--font-mono);font-size:11.5px;color:var(--text);text-align:right;}
+  .mini-bar{height:5px;border-radius:4px;background:var(--border-soft);overflow:hidden;position:relative;}
+  .mini-bar > i{display:block;height:100%;border-radius:4px;}
+  .arrow-hint{position:absolute;right:16px;top:18px;color:var(--text-mute);font-size:14px;}
+  .bar-good{background:var(--good);} .bar-warn{background:var(--warn);} .bar-crit{background:var(--crit);} .bar-none{background:var(--text-mute);}
+
+  .chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:36px;}
+  .chart-card .chart-wrap-lg{height:230px;}
+
+  #admin-detail-panel{display:none;}
+  .backbar{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
+  .back-btn{
+    display:inline-flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border);
+    color:var(--text-soft);font-family:var(--font-body);font-size:13px;padding:8px 14px;border-radius:9px;cursor:pointer;
+  }
+  .back-btn:hover{color:var(--text);border-color:#2c3644;}
+  .gestor-chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:600;font-size:20px;}
+  .gestor-chip .swatch{width:12px;height:12px;border-radius:4px;background:var(--gcolor);box-shadow:0 0 10px var(--gcolor);}
+  .gestor-chip .n{color:var(--text-mute);font-family:var(--font-body);font-weight:400;font-size:13px;}
+
+  .team-strip{
+    display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);
+    border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:26px;
+  }
+  .team-strip .cell{background:var(--bg-elev);padding:14px 14px;}
+  .team-strip .label{font-size:10.5px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .team-strip .value{font-family:var(--font-mono);font-size:18px;font-weight:600;}
+  @media (max-width:960px){ .team-strip{grid-template-columns:repeat(3,1fr);} }
+  @media (max-width:560px){ .team-strip{grid-template-columns:repeat(2,1fr);} }
+
+  .metric-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+  select#metric-select{
+    background:var(--bg-elev);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:8px 12px;font-family:var(--font-body);font-size:13px;cursor:pointer;
+  }
+  .legend-line{display:flex;gap:16px;font-size:11.5px;color:var(--text-mute);flex-wrap:wrap;}
+  .legend-line span{display:inline-flex;align-items:center;gap:6px;}
+  .legend-line i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .detail-chart{height:340px;margin-bottom:30px;}
+
+  table.tech-table{width:100%;border-collapse:collapse;font-size:13px;}
+  table.tech-table thead th{
+    text-align:right;font-family:var(--font-body);font-weight:600;color:var(--text-soft);
+    font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--border);
+    cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  table.tech-table thead th:first-child, table.tech-table tbody td:first-child{text-align:left;}
+  table.tech-table thead th:hover{color:var(--text);}
+  table.tech-table thead th.sorted::after{content:' ▾';color:var(--accent);}
+  table.tech-table thead th.sorted.asc::after{content:' ▴';}
+  table.tech-table tbody td{padding:10px 12px;border-bottom:1px solid var(--border-soft);font-family:var(--font-mono);text-align:right;white-space:nowrap;}
+  table.tech-table tbody td:first-child{font-family:var(--font-body);text-align:left;color:var(--text);position:relative;}
+  table.tech-table tbody tr.tech-row:hover{background:var(--bg-card-hover);cursor:pointer;}
+  table.tech-table tbody tr.tech-row.is-open{background:var(--bg-card-hover);}
+  table.tech-table tbody tr.tech-row td:first-child::before{
+    content:'▸';display:inline-block;width:12px;color:var(--text-mute);font-size:10px;
+  }
+  table.tech-table tbody tr.tech-row.is-open td:first-child::before{content:'▾';color:var(--accent);}
+  .badge{display:inline-block;min-width:34px;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:600;text-align:center;}
+  .table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);padding:6px 6px 2px;}
+
+  tr.tech-detail-row td{padding:0;border-bottom:1px solid var(--border);}
+  .tech-detail{
+    background:var(--bg-elev);padding:20px 22px 22px;
+    display:grid;grid-template-columns:1.15fr 1fr;gap:28px;
+    font-family:var(--font-body);white-space:normal;text-align:left;
+  }
+  @media (max-width:760px){ .tech-detail{grid-template-columns:1fr;} }
+  .td-block h4{
+    margin:0 0 12px;font-family:var(--font-display);font-size:12.5px;font-weight:600;
+    color:var(--text-soft);text-transform:uppercase;letter-spacing:.06em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="lockup">
+      <div class="eyebrow" style="justify-content:center;"><span class="dot"></span> Painel Operacional</div>
+      <h1>Meu Painel de Indicadores</h1>
+      <p>Digite seu nome para acessar apenas os seus dados</p>
+    </div>
+
+    <div id="step-name">
+      <label for="name-input">Nome completo</label>
+      <div class="field-wrap">
+        <input type="text" id="name-input" autocomplete="off" placeholder="Comece a digitar seu nome...">
+        <div class="suggest-list" id="suggest-list" style="display:none;"></div>
+      </div>
+      <button class="btn-primary" id="continue-btn" disabled>Continuar</button>
+      <div id="name-msg"></div>
+      <button class="btn-link" id="goto-admin-btn">Sou gestor/administrador →</button>
+    </div>
+
+    <div id="step-auth" style="display:none;">
+      <div id="selected-name-chip" style="font-size:13.5px;color:var(--text-soft);margin-bottom:4px;"></div>
+      <div id="auth-first-access" style="display:none;">
+        <div class="msg info">Primeiro acesso! Crie uma senha para proteger seus dados.</div>
+        <label for="pw-new">Crie uma senha</label>
+        <input type="password" id="pw-new" autocomplete="new-password" placeholder="Mínimo 4 caracteres">
+        <label for="pw-new2">Confirme a senha</label>
+        <input type="password" id="pw-new2" autocomplete="new-password">
+        <button class="btn-primary" id="create-pw-btn">Criar senha e entrar</button>
+      </div>
+      <div id="auth-login" style="display:none;">
+        <label for="pw-existing">Senha</label>
+        <input type="password" id="pw-existing" autocomplete="current-password">
+        <button class="btn-primary" id="login-btn">Entrar</button>
+      </div>
+      <button class="btn-link" id="back-to-name">&larr; Não sou eu / trocar nome</button>
+      <div id="auth-msg"></div>
+    </div>
+
+    <div id="step-admin" style="display:none;">
+      <div class="lockup" style="margin-bottom:14px;">
+        <p style="color:var(--text-soft);font-size:13px;">Acesso administrador — vê todos os gestores e técnicos.</p>
+      </div>
+      <div id="admin-first-access" style="display:none;">
+        <div class="msg info">Primeiro acesso administrador! Crie a senha master.</div>
+        <label for="admin-pw-new">Crie a senha master</label>
+        <input type="password" id="admin-pw-new" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+        <label for="admin-pw-new2">Confirme a senha</label>
+        <input type="password" id="admin-pw-new2" autocomplete="new-password">
+        <button class="btn-primary" id="admin-create-pw-btn">Criar senha master e entrar</button>
+      </div>
+      <div id="admin-login" style="display:none;">
+        <label for="admin-pw-existing">Senha master</label>
+        <input type="password" id="admin-pw-existing" autocomplete="current-password">
+        <button class="btn-primary" id="admin-login-btn">Entrar como administrador</button>
+      </div>
+      <button class="btn-link" id="back-to-name-from-admin">&larr; Voltar</button>
+      <div id="admin-auth-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN DASHBOARD ===================== -->
+<div id="admin-dashboard">
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Painel Operacional · Julho 2026 · Administrador</div>
+        <h1>Indicadores de Técnicos de Campo</h1>
+        <p class="subtitle">Desempenho por gestor e por técnico — visão completa de todas as equipes.</p>
+      </div>
+      <button class="logout-btn" id="admin-logout-btn">Sair</button>
+    </header>
+
+    <div class="banner" id="admin-banner"></div>
+
+    <section id="admin-access-panel" class="card" style="margin-bottom:32px;">
+      <div class="section-title">
+        <h2>Gerenciar acessos dos técnicos</h2>
+        <span class="hint">Redefina a senha de alguém que esqueceu — o próximo login dele vira "primeiro acesso" de novo</span>
+      </div>
+      <div class="field-wrap" style="margin-bottom:14px;max-width:360px;">
+        <input type="text" id="access-search" placeholder="Buscar técnico por nome...">
+      </div>
+      <div class="table-scroll">
+        <table class="tech-table" id="access-table">
+          <thead><tr><th style="text-align:left;">Técnico</th><th>Gestor</th><th>Status</th><th></th></tr></thead>
+          <tbody id="access-tbody"></tbody>
+        </table>
+      </div>
+      <div id="access-msg" style="margin-top:10px;"></div>
+
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+        <button class="btn-link" id="toggle-master-pw" style="margin:0;padding:0;">Trocar minha senha master →</button>
+        <div id="master-pw-form" style="display:none;max-width:360px;margin-top:12px;">
+          <label for="master-pw-current">Senha master atual</label>
+          <input type="password" id="master-pw-current" autocomplete="current-password">
+          <label for="master-pw-new2f">Nova senha master</label>
+          <input type="password" id="master-pw-new2f" autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+          <label for="master-pw-confirm2f">Confirme a nova senha</label>
+          <input type="password" id="master-pw-confirm2f" autocomplete="new-password">
+          <button class="btn-primary" id="save-master-pw-btn">Salvar nova senha master</button>
+          <div id="master-pw-msg"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="admin-overview-panel">
+      <div class="section-title">
+        <h2>Visão por Gestor</h2>
+        <span class="hint">Índice geral = média normalizada de eficiência, revisitas, produtividade e SLA vs. meta</span>
+      </div>
+      <div class="gestor-grid" id="admin-gestor-grid"></div>
+
+      <div class="chart-card">
+        <div class="section-title" style="margin-bottom:6px;">
+          <h2 style="font-size:15px;">Índice Geral — comparação entre gestores</h2>
+        </div>
+        <div class="chart-wrap-lg"><canvas id="admin-gestor-chart"></canvas></div>
+      </div>
+    </section>
+
+    <section id="admin-detail-panel">
+      <div class="backbar">
+        <button class="back-btn" id="admin-back-btn">&larr; Voltar para gestores</button>
+        <div class="gestor-chip"><span class="swatch" id="admin-chip-swatch"></span><span id="admin-chip-name"></span><span class="n" id="admin-chip-count"></span></div>
+      </div>
+
+      <div class="team-strip" id="admin-team-strip"></div>
+
+      <div class="metric-toolbar">
+        <div>
+          <label for="admin-metric-select" style="font-size:12px;color:var(--text-mute);margin-right:8px;display:inline;text-transform:none;">Métrica do gráfico</label>
+          <select id="admin-metric-select"></select>
+        </div>
+        <div class="legend-line">
+          <span><i style="background:var(--good)"></i> Acima/na meta</span>
+          <span><i style="background:var(--warn)"></i> Próximo da meta</span>
+          <span><i style="background:var(--crit)"></i> Abaixo da meta</span>
+        </div>
+      </div>
+
+      <div class="chart-card detail-chart"><canvas id="admin-tech-chart"></canvas></div>
+
+      <div class="table-scroll">
+        <p style="font-size:12px;color:var(--text-mute);margin:4px 6px 12px;">Clique em um técnico para ver todos os indicadores e o volume de cada atividade realizada.</p>
+        <table class="tech-table" id="admin-tech-table">
+          <thead><tr id="admin-tech-thead-row"></tr></thead>
+          <tbody id="admin-tech-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Fonte: <code>Tec_Julho.xlsx</code> — aba "INDICADORES TÉCNICOS". Modo administrador — todos os gestores e técnicos visíveis.
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div class="wrap" id="dashboard">
+  <header class="top">
+    <div>
+      <div class="eyebrow"><span class="dot"></span> Painel Operacional · Julho 2026</div>
+      <h1 id="dash-title">Olá</h1>
+      <p class="subtitle" id="dash-subtitle"></p>
+    </div>
+    <button class="logout-btn" id="logout-btn">Sair</button>
+  </header>
+
+  <div class="score-card" id="score-card">
+    <div>
+      <div class="score" id="score-value">—</div>
+      <div class="score-label">Seu índice geral</div>
+    </div>
+    <div class="compare" id="score-compare"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>Indicadores vs. Meta</h2>
+    </div>
+    <div id="ind-block"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>Volume operacional no período</h2>
+    </div>
+    <div class="vol-grid" id="vol-block"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">
+      <h2>Você vs. sua equipe vs. meta</h2>
+      <span class="hint">Índice normalizado (0–100) por indicador</span>
+    </div>
+    <div class="chart-wrap"><canvas id="compare-chart"></canvas></div>
+  </div>
+
+  <footer>
+    Fonte: <code>Tec_Julho.xlsx</code> — aba "INDICADORES TÉCNICOS". Acesso restrito aos seus próprios dados.
+  </footer>
+</div>
+
+<script>
+/* ================= DATA (embutida no build — atualizar recriando este arquivo) ================= */
+const RAW = {"tecnicos": [{"gestor": "CRISTIANO", "nome": "CIP _ RAFAEL GIELINSKI", "nps": 0.7, "eficiencia": 0.6785714285714286, "wo_min": 524.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 4.222222222222222, "dias_trab_pct": 0.6, "dias_trab": 9, "cq": 0, "ativacao": 4, "ativacao_corp": 0, "rem_ext": 6, "rem_int": 0, "reparo": 28, "total_geral": 38, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ ADILSON DOS SANTOS MARQUES", "nps": 0.7, "eficiencia": 0.7454545454545455, "wo_min": 499.0, "revisita_ativacao": 0.041666666666666664, "revisita_reparo": 0, "produtividade": 4, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 2, "ativacao": 19, "ativacao_corp": 2, "rem_ext": 1, "rem_int": 1, "reparo": 17, "total_geral": 40, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ ADRIANO JOAO LINO ROCHA", "nps": 0.7, "eficiencia": 0.8275862068965517, "wo_min": 544.0, "revisita_ativacao": 0.3, "revisita_reparo": 0.0625, "produtividade": 3.2142857142857144, "dias_trab_pct": 0.9333333333333333, "dias_trab": 14, "cq": 0, "ativacao": 10, "ativacao_corp": 10, "rem_ext": 3, "rem_int": 0, "reparo": 22, "total_geral": 45, "mesh": 2}, {"gestor": "CRISTIANO", "nome": "CIP _ DEIVIDY FERREIRA DO AMARA", "nps": 0.7, "eficiencia": 0.8297872340425532, "wo_min": 564.0, "revisita_ativacao": 0.07692307692307693, "revisita_reparo": 0, "produtividade": 3.0833333333333335, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 7, "ativacao_corp": 17, "rem_ext": 2, "rem_int": 0, "reparo": 11, "total_geral": 37, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ DIEGO FELIZARDO DE OLIVEIRA", "nps": 0.7, "eficiencia": 0.8405797101449275, "wo_min": 523.0, "revisita_ativacao": 0.11538461538461539, "revisita_reparo": 0.03333333333333333, "produtividade": 3.857142857142857, "dias_trab_pct": 0.9333333333333333, "dias_trab": 14, "cq": 0, "ativacao": 21, "ativacao_corp": 1, "rem_ext": 2, "rem_int": 1, "reparo": 29, "total_geral": 54, "mesh": 4}, {"gestor": "CRISTIANO", "nome": "CIP _ ERICO LEANDRO ROSA", "nps": 0.7, "eficiencia": 0.8076923076923077, "wo_min": 528.0, "revisita_ativacao": 0.45454545454545453, "revisita_reparo": 0.2222222222222222, "produtividade": 3.727272727272727, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 20, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 20, "total_geral": 41, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ IVANIR QUARESMA", "nps": 0.7, "eficiencia": 0.6206896551724138, "wo_min": 676.0, "revisita_ativacao": 0.07692307692307693, "revisita_reparo": 0, "produtividade": 2, "dias_trab_pct": 0.6, "dias_trab": 9, "cq": 0, "ativacao": 7, "ativacao_corp": 6, "rem_ext": 2, "rem_int": 0, "reparo": 3, "total_geral": 18, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ JONHATHAN ATTOS DE SOUSA", "nps": 0.7, "eficiencia": 0.875, "wo_min": 512.0, "revisita_ativacao": 0.14285714285714285, "revisita_reparo": 0, "produtividade": 4.416666666666667, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 8, "ativacao": 18, "ativacao_corp": 0, "rem_ext": 7, "rem_int": 0, "reparo": 28, "total_geral": 53, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ JOSE CARLOS ZACARIAS", "nps": 0.7, "eficiencia": 0.8275862068965517, "wo_min": 515.0, "revisita_ativacao": 0, "revisita_reparo": 0.1111111111111111, "produtividade": 4, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 2, "ativacao": 16, "ativacao_corp": 4, "rem_ext": 7, "rem_int": 1, "reparo": 20, "total_geral": 48, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ KLEBER FERREIRA", "nps": 0.7, "eficiencia": 0.8333333333333334, "wo_min": 547.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.125, "dias_trab_pct": 0.5333333333333333, "dias_trab": 8, "cq": 0, "ativacao": 7, "ativacao_corp": 1, "rem_ext": 0, "rem_int": 0, "reparo": 17, "total_geral": 25, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ LEONARDO FERNANDES LUCAS", "nps": 0.7, "eficiencia": 0.8679245283018868, "wo_min": 588.0, "revisita_ativacao": 0.037037037037037035, "revisita_reparo": 0.13333333333333333, "produtividade": 3.5, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 2, "ativacao": 19, "ativacao_corp": 3, "rem_ext": 4, "rem_int": 0, "reparo": 16, "total_geral": 42, "mesh": 4}, {"gestor": "CRISTIANO", "nome": "CIP_ ANDERSON FABIANO DE OLIVEIRA", "nps": 0.7, "eficiencia": 0.9215686274509803, "wo_min": 517.0, "revisita_ativacao": 0.06896551724137931, "revisita_reparo": 0, "produtividade": 3.3846153846153846, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 20, "ativacao_corp": 6, "rem_ext": 2, "rem_int": 1, "reparo": 15, "total_geral": 44, "mesh": 3}, {"gestor": "CRISTIANO", "nome": "CIP _ DIEGO FELIPE GOMES", "nps": 0.7, "eficiencia": 0.7857142857142857, "wo_min": 522.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.6666666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 2, "ativacao": 22, "ativacao_corp": 1, "rem_ext": 3, "rem_int": 0, "reparo": 18, "total_geral": 44, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ LUAN NEVES DOS SANTOS", "nps": 0.7, "eficiencia": 0.8333333333333334, "wo_min": 528.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.090909090909091, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 1, "ativacao": 13, "ativacao_corp": 1, "rem_ext": 2, "rem_int": 0, "reparo": 18, "total_geral": 34, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ SERGIO PATRICK DOS SANTOS NUNES", "nps": 0.7, "eficiencia": 0.7297297297297297, "wo_min": 513.0, "revisita_ativacao": 0.1, "revisita_reparo": 0, "produtividade": 3, "dias_trab_pct": 0.6, "dias_trab": 9, "cq": 0, "ativacao": 10, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 16, "total_geral": 27, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ HEBER DE SOUZA FLÁVIO", "nps": 0.7, "eficiencia": 0.828125, "wo_min": 506.0, "revisita_ativacao": 0.1111111111111111, "revisita_reparo": 0, "produtividade": 3.923076923076923, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 3, "ativacao": 17, "ativacao_corp": 1, "rem_ext": 3, "rem_int": 0, "reparo": 30, "total_geral": 51, "mesh": null}, {"gestor": "CRISTIANO", "nome": "CIP _ ALISSOM DA SILVA", "nps": 0.7, "eficiencia": 0.8253968253968254, "wo_min": 554.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.923076923076923, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 26, "ativacao_corp": 0, "rem_ext": 10, "rem_int": 0, "reparo": 15, "total_geral": 51, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ CRISTIANO RODRIGUES DE SOUSA", "nps": 0.7, "eficiencia": 0.8771929824561403, "wo_min": 606.0, "revisita_ativacao": 0.045454545454545456, "revisita_reparo": 0.08695652173913043, "produtividade": 3.4285714285714284, "dias_trab_pct": 0.9333333333333333, "dias_trab": 14, "cq": 0, "ativacao": 13, "ativacao_corp": 6, "rem_ext": 3, "rem_int": 0, "reparo": 26, "total_geral": 48, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ LUCIANO ANDRÉ DE OLIVEIRA", "nps": 0.7, "eficiencia": 0.8235294117647058, "wo_min": 559.0, "revisita_ativacao": 0.11538461538461539, "revisita_reparo": 0.09090909090909091, "produtividade": 3.4166666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 2, "ativacao": 12, "ativacao_corp": 13, "rem_ext": 2, "rem_int": 0, "reparo": 14, "total_geral": 41, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ LUCAS MARINHAK", "nps": 0.7, "eficiencia": 0.7166666666666667, "wo_min": 519.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.5, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 16, "ativacao_corp": 1, "rem_ext": 1, "rem_int": 0, "reparo": 24, "total_geral": 42, "mesh": 1}, {"gestor": "CRISTIANO", "nome": "CIP _ EDUARDO DE LIMA RIBEIRO ALEGRO", "nps": 0.7, "eficiencia": 0.8, "wo_min": 557.0, "revisita_ativacao": 0.05714285714285714, "revisita_reparo": 0, "produtividade": 3.3846153846153846, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 19, "ativacao_corp": 16, "rem_ext": 0, "rem_int": 0, "reparo": 9, "total_geral": 44, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ ADHAN FELIPE GONÇALVES PADILHA", "nps": 0.7, "eficiencia": null, "wo_min": 783.0, "revisita_ativacao": null, "revisita_reparo": null, "produtividade": null, "dias_trab_pct": null, "dias_trab": null, "cq": 0, "ativacao": null, "ativacao_corp": null, "rem_ext": null, "rem_int": null, "reparo": null, "total_geral": null, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ ADRIANO CRUZ", "nps": 0.7, "eficiencia": 0.6666666666666666, "wo_min": 487.0, "revisita_ativacao": 0, "revisita_reparo": 0.047619047619047616, "produtividade": 3.5833333333333335, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 14, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 26, "total_geral": 43, "mesh": 2}, {"gestor": "ISRAEL", "nome": "CIP _ DIONATAN EWERTON WOZNHAK FRANCA DA", "nps": 0.7, "eficiencia": 0.6071428571428571, "wo_min": 589.0, "revisita_ativacao": 0.1111111111111111, "revisita_reparo": 0, "produtividade": 1.7777777777777777, "dias_trab_pct": 0.6, "dias_trab": 9, "cq": 0, "ativacao": 5, "ativacao_corp": 4, "rem_ext": 0, "rem_int": 0, "reparo": 7, "total_geral": 16, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ GILSON RISKE", "nps": 0.7, "eficiencia": 0.8444444444444444, "wo_min": 532.0, "revisita_ativacao": 0, "revisita_reparo": 0.125, "produtividade": 2.923076923076923, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 9, "ativacao_corp": 19, "rem_ext": 3, "rem_int": 0, "reparo": 7, "total_geral": 38, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ JHONATAN WILLIAN PORTO KOCHOLIK", "nps": 0.7, "eficiencia": 0.75, "wo_min": 568.0, "revisita_ativacao": 0, "revisita_reparo": 0.09523809523809523, "produtividade": 3, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 13, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 1, "reparo": 21, "total_geral": 36, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ MAURICIO CARLOS LUCAS", "nps": 0.7, "eficiencia": 0.6129032258064516, "wo_min": 516.0, "revisita_ativacao": 0, "revisita_reparo": 0.09090909090909091, "produtividade": 1.8888888888888888, "dias_trab_pct": 0.6, "dias_trab": 9, "cq": 0, "ativacao": 5, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 1, "reparo": 10, "total_geral": 17, "mesh": 2}, {"gestor": "ISRAEL", "nome": "CIP _ ROBSON MARCELO DE OLIVEIRA BRAVO", "nps": 0.7, "eficiencia": 0.47368421052631576, "wo_min": 550.0, "revisita_ativacao": 0.3333333333333333, "revisita_reparo": 0, "produtividade": 1.8, "dias_trab_pct": 0.3333333333333333, "dias_trab": 5, "cq": 0, "ativacao": 3, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 5, "total_geral": 9, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ CLEITON SAMONEK", "nps": 0.7, "eficiencia": 0.711864406779661, "wo_min": 517.0, "revisita_ativacao": 0.1, "revisita_reparo": 0.05555555555555555, "produtividade": 3.4166666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 18, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 20, "total_geral": 41, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ WERYCLES GILBERTO DE OLVEIRA PEREI", "nps": 0.7, "eficiencia": 0.6756756756756757, "wo_min": 592.0, "revisita_ativacao": 0, "revisita_reparo": 0.08333333333333333, "produtividade": 2.4, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 0, "ativacao": 6, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 17, "total_geral": 24, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ MARCELO PINHEIRO FERREIRA", "nps": 0.7, "eficiencia": 0.6666666666666666, "wo_min": 535.0, "revisita_ativacao": 0, "revisita_reparo": 0.07142857142857142, "produtividade": 2.9, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 0, "ativacao": 8, "ativacao_corp": 1, "rem_ext": 3, "rem_int": 0, "reparo": 17, "total_geral": 29, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ CARLOS DANILO DE SOUSA", "nps": 0.7, "eficiencia": 0.74, "wo_min": 546.0, "revisita_ativacao": 0.047619047619047616, "revisita_reparo": 0.07142857142857142, "produtividade": 2.5384615384615383, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 4, "ativacao": 16, "ativacao_corp": 2, "rem_ext": 3, "rem_int": 0, "reparo": 12, "total_geral": 33, "mesh": 2}, {"gestor": "ISRAEL", "nome": "CIP _ GILBERTO DE OLIVEIRA MIRANDA", "nps": 0.7, "eficiencia": 0.7333333333333333, "wo_min": 591.0, "revisita_ativacao": 0.09090909090909091, "revisita_reparo": 0, "produtividade": 3.5, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 9, "ativacao_corp": 1, "rem_ext": 3, "rem_int": 0, "reparo": 29, "total_geral": 42, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ WELLINGTON BEZERRA NASCIMENTO", "nps": 0.7, "eficiencia": null, "wo_min": 523.0, "revisita_ativacao": null, "revisita_reparo": null, "produtividade": null, "dias_trab_pct": null, "dias_trab": null, "cq": 0, "ativacao": null, "ativacao_corp": null, "rem_ext": null, "rem_int": null, "reparo": null, "total_geral": null, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ KENNEDY BISPO TOFOLO", "nps": 0.7, "eficiencia": 0.640625, "wo_min": 521.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.1666666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 10, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 1, "reparo": 24, "total_geral": 38, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ RICARDO JOSÉ GONZÁLEZ QUINTERO", "nps": 0.7, "eficiencia": 0.8421052631578947, "wo_min": 537.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.2, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 0, "ativacao": 12, "ativacao_corp": 4, "rem_ext": 1, "rem_int": 1, "reparo": 14, "total_geral": 32, "mesh": null}, {"gestor": "ISRAEL", "nome": "CIP _ ELIAS HENRIQUE DO CARMO ANDRADE", "nps": 0.7, "eficiencia": 0.7096774193548387, "wo_min": 533.0, "revisita_ativacao": 0, "revisita_reparo": 0.058823529411764705, "produtividade": 3.909090909090909, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 20, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 20, "total_geral": 43, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ TIAGO SUREK", "nps": 0.7, "eficiencia": 0.8837209302325582, "wo_min": 523.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.272727272727273, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 14, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 1, "reparo": 18, "total_geral": 36, "mesh": 1}, {"gestor": "ISRAEL", "nome": "CIP _ BRUNO ANTONIO DOS SANTOS WISNIESKI", "nps": 0.7, "eficiencia": 0.6949152542372882, "wo_min": 524.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.4166666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 2, "ativacao": 14, "ativacao_corp": 2, "rem_ext": 4, "rem_int": 0, "reparo": 21, "total_geral": 41, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ ADEMIR DE MELO CEZAR", "nps": 0.7, "eficiencia": 0.8333333333333334, "wo_min": 783.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 1.25, "dias_trab_pct": 0.26666666666666666, "dias_trab": 4, "cq": 0, "ativacao": 4, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 1, "total_geral": 5, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ ANTONIO CARLOS GONÇALVES", "nps": 0.7, "eficiencia": 0.9583333333333334, "wo_min": 615.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.090909090909091, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 6, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 16, "total_geral": 23, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ APARECIDO DE OLIVEIRA LIMA", "nps": 0.7, "eficiencia": 0.9565217391304348, "wo_min": 517.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 8, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 14, "total_geral": 22, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ CLAUDINEI BATISTA DE OLIVEIRA", "nps": 0.7, "eficiencia": 0.9210526315789473, "wo_min": 579.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.8333333333333335, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 7, "ativacao_corp": 0, "rem_ext": 4, "rem_int": 2, "reparo": 21, "total_geral": 34, "mesh": 1}, {"gestor": "KAIO", "nome": "CIP _ DARLAN JOSE AZEVEDO", "nps": 0.7, "eficiencia": 0.9714285714285714, "wo_min": 619.0, "revisita_ativacao": 0, "revisita_reparo": 0.058823529411764705, "produtividade": 2.6153846153846154, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 5, "ativacao_corp": 0, "rem_ext": 4, "rem_int": 0, "reparo": 25, "total_geral": 34, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ ELCIO DE ANDRADE JUNIOR", "nps": 0.7, "eficiencia": 1, "wo_min": 798.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.2, "dias_trab_pct": 0.3333333333333333, "dias_trab": 5, "cq": 0, "ativacao": 3, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 8, "total_geral": 11, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ ELISON JOSE DE OLIVEIRA", "nps": 0.7, "eficiencia": 0.925, "wo_min": 520.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.8461538461538463, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 20, "ativacao_corp": 0, "rem_ext": 4, "rem_int": 2, "reparo": 11, "total_geral": 37, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ JUCIMAR MARTINS DOS SANTOS", "nps": 0.7, "eficiencia": 0.9615384615384616, "wo_min": 598.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 1.9230769230769231, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 2, "ativacao_corp": 0, "rem_ext": 2, "rem_int": 1, "reparo": 20, "total_geral": 25, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ KAUA MATEUS BARBOSA", "nps": 0.7, "eficiencia": 0.8918918918918919, "wo_min": 595.0, "revisita_ativacao": 0, "revisita_reparo": 0.125, "produtividade": 3, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 16, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 16, "total_geral": 33, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ MARCELO GONCALVES", "nps": 0.7, "eficiencia": 0.9, "wo_min": 535.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.6, "dias_trab_pct": 0.3333333333333333, "dias_trab": 5, "cq": 0, "ativacao": 6, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 12, "total_geral": 18, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ RENAN DE QUADROS FABIAN", "nps": 0.7, "eficiencia": 0.9767441860465116, "wo_min": 520.0, "revisita_ativacao": 0.2, "revisita_reparo": 0, "produtividade": 3.230769230769231, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 0, "ativacao": 10, "ativacao_corp": 0, "rem_ext": 6, "rem_int": 0, "reparo": 26, "total_geral": 42, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ GABRIEL VINICIUS NEVES", "nps": 0.7, "eficiencia": 0.9545454545454546, "wo_min": 524.0, "revisita_ativacao": 0, "revisita_reparo": 0.05555555555555555, "produtividade": 3.5, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 10, "ativacao_corp": 0, "rem_ext": 5, "rem_int": 0, "reparo": 27, "total_geral": 42, "mesh": null}, {"gestor": "KAIO", "nome": "CIP _ JOÃO CARLOS DA COSTA", "nps": 0.7, "eficiencia": 0.8421052631578947, "wo_min": 561.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 3.4285714285714284, "dias_trab_pct": 0.9333333333333333, "dias_trab": 14, "cq": 0, "ativacao": 27, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 18, "total_geral": 48, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ ANDRÉ DOS SANTOS ALVES FILHO", "nps": 0.7, "eficiencia": null, "wo_min": 554.0, "revisita_ativacao": null, "revisita_reparo": null, "produtividade": null, "dias_trab_pct": null, "dias_trab": null, "cq": 0, "ativacao": null, "ativacao_corp": null, "rem_ext": null, "rem_int": null, "reparo": null, "total_geral": null, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ Paulo Anizio De Carlos", "nps": 0.7, "eficiencia": 0.675, "wo_min": 500.0, "revisita_ativacao": 0, "revisita_reparo": 0.14285714285714285, "produtividade": 2.7, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 2, "ativacao": 7, "ativacao_corp": 0, "rem_ext": 4, "rem_int": 0, "reparo": 16, "total_geral": 27, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ ROGERIO ALVES GARCIA", "nps": 0.7, "eficiencia": 0.7538461538461538, "wo_min": 499.0, "revisita_ativacao": 0, "revisita_reparo": 0.034482758620689655, "produtividade": 3.769230769230769, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 9, "ativacao": 17, "ativacao_corp": 0, "rem_ext": 2, "rem_int": 0, "reparo": 30, "total_geral": 49, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ GABRIEL HENRIQUE PEREIRA", "nps": 0.7, "eficiencia": 0.7878787878787878, "wo_min": 524.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.4, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 3, "ativacao": 5, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 16, "total_geral": 24, "mesh": 2}, {"gestor": "MARCELO", "nome": "CIP _ RAFAEL LUCIANO LEMOS COPETI", "nps": 0.7, "eficiencia": 0.6666666666666666, "wo_min": 500.0, "revisita_ativacao": 0, "revisita_reparo": 0.041666666666666664, "produtividade": 2.923076923076923, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 7, "ativacao": 12, "ativacao_corp": 0, "rem_ext": 2, "rem_int": 0, "reparo": 24, "total_geral": 38, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ José Augusto Rodrigues Junior", "nps": 0.7, "eficiencia": 0.6326530612244898, "wo_min": 512.0, "revisita_ativacao": 0, "revisita_reparo": 0.1111111111111111, "produtividade": 2.8181818181818183, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 10, "ativacao_corp": 0, "rem_ext": 2, "rem_int": 1, "reparo": 18, "total_geral": 31, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ Luiz Guilherme Skroch", "nps": 0.7, "eficiencia": 0.8648648648648649, "wo_min": 512.0, "revisita_ativacao": 0, "revisita_reparo": 0.12, "produtividade": 2.909090909090909, "dias_trab_pct": 0.7333333333333333, "dias_trab": 11, "cq": 0, "ativacao": 5, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 27, "total_geral": 32, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ WENDY WILIAN GOUVEA MENDES", "nps": 0.7, "eficiencia": 0.631578947368421, "wo_min": 533.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 5, "ativacao_corp": 0, "rem_ext": 0, "rem_int": 0, "reparo": 19, "total_geral": 24, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ PAULO CESAR SANTOS NUNES", "nps": 0.7, "eficiencia": 0.631578947368421, "wo_min": 547.0, "revisita_ativacao": 0, "revisita_reparo": 0.3333333333333333, "produtividade": 3, "dias_trab_pct": 0.26666666666666666, "dias_trab": 4, "cq": 16, "ativacao": 2, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 9, "total_geral": 12, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ DENILSON LEME CORREA", "nps": 0.7, "eficiencia": 0.7619047619047619, "wo_min": 585.0, "revisita_ativacao": 0.1, "revisita_reparo": 0.11764705882352941, "produtividade": 2.6666666666666665, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 9, "ativacao_corp": 0, "rem_ext": 3, "rem_int": 0, "reparo": 20, "total_geral": 32, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ RICARDO DO ROZARIO DA SILVA", "nps": 0.7, "eficiencia": 0.7368421052631579, "wo_min": 497.0, "revisita_ativacao": 0.2727272727272727, "revisita_reparo": 0, "produtividade": 3.3333333333333335, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 9, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 30, "total_geral": 40, "mesh": 2}, {"gestor": "MARCELO", "nome": "CIP _ TELITON RENAN CARNEIRO GONÇALVES", "nps": 0.7, "eficiencia": 0.723404255319149, "wo_min": 513.0, "revisita_ativacao": 0, "revisita_reparo": 0.045454545454545456, "produtividade": 2.8333333333333335, "dias_trab_pct": 0.8, "dias_trab": 12, "cq": 0, "ativacao": 6, "ativacao_corp": 0, "rem_ext": 1, "rem_int": 0, "reparo": 27, "total_geral": 34, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ NILTON JOSE DA SILVA", "nps": 0.7, "eficiencia": 0.6136363636363636, "wo_min": 516.0, "revisita_ativacao": 0.25, "revisita_reparo": 0.07142857142857142, "produtividade": 1.9230769230769231, "dias_trab_pct": 0.8666666666666667, "dias_trab": 13, "cq": 7, "ativacao": 7, "ativacao_corp": 0, "rem_ext": 2, "rem_int": 0, "reparo": 16, "total_geral": 25, "mesh": null}, {"gestor": "MARCELO", "nome": "CIP _ HYURIT ANDREY MAGALHAES LIMA", "nps": 0.7, "eficiencia": 0.7435897435897436, "wo_min": 506.0, "revisita_ativacao": 0, "revisita_reparo": 0, "produtividade": 2.9, "dias_trab_pct": 0.6666666666666666, "dias_trab": 10, "cq": 0, "ativacao": 8, "ativacao_corp": 0, "rem_ext": 4, "rem_int": 2, "reparo": 15, "total_geral": 29, "mesh": null}], "metas": {"nps": 0.7, "eficiencia": 0.8, "wo_min": 510, "revisita_ativacao": 0.05, "revisita_reparo": 0.1, "produtividade": 3.5}};
+const METAS = RAW.metas;
+const TECS = RAW.tecnicos;
+
+const GHEX_LIST = ["#26d9c9","#9089f2","#f2a93b","#4fa8f5","#f0576b","#5fd15e","#e879c0","#63b3ed"];
+const gestorColor = {};
+function colorFor(gestor){
+  if(!gestorColor[gestor]){
+    const idx = Object.keys(gestorColor).length % GHEX_LIST.length;
+    gestorColor[gestor] = GHEX_LIST[idx];
+  }
+  return gestorColor[gestor];
+}
+
+function prettyName(raw){
+  let s = raw.replace(/^\s*CIP\s*_*\s*/i,'').trim();
+  const letters = s.replace(/[^A-Za-zÀ-ÿ]/g,'');
+  const isUpper = letters && letters === letters.toUpperCase();
+  if(isUpper){
+    s = s.toLowerCase().replace(/(^|\s)([a-zà-ÿ])/g,(m,p1,p2)=>p1+p2.toUpperCase());
+  }
+  return s.trim();
+}
+function slugify(name){
+  let s = name.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  s = s.toLowerCase().replace(/^\s*cip\s*_*\s*/,'');
+  s = s.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return s;
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function scoreHigherBetter(v, meta){ if(v===null||v===undefined) return null; return clamp(v/meta,0,1)*100; }
+function scoreLowerBetter(v, meta){ if(v===null||v===undefined) return null; if(v<=meta) return 100; return clamp(meta/v,0,1)*100; }
+function computeComposite(t){
+  const parts = [];
+  const e = scoreHigherBetter(t.eficiencia, METAS.eficiencia); if(e!==null) parts.push(e);
+  const ra = scoreLowerBetter(t.revisita_ativacao, METAS.revisita_ativacao); if(ra!==null) parts.push(ra);
+  const rr = scoreLowerBetter(t.revisita_reparo, METAS.revisita_reparo); if(rr!==null) parts.push(rr);
+  const p = scoreHigherBetter(t.produtividade, METAS.produtividade); if(p!==null) parts.push(p);
+  const w = scoreLowerBetter(t.wo_min, METAS.wo_min); if(w!==null) parts.push(w);
+  if(parts.length===0) return null;
+  return parts.reduce((a,b)=>a+b,0)/parts.length;
+}
+function tierOf(score){ if(score===null||score===undefined) return 'none'; if(score>=80) return 'good'; if(score>=60) return 'warn'; return 'crit'; }
+function fmtPct(v,dec=1){ return (v===null||v===undefined) ? '—' : (v*100).toFixed(dec)+'%'; }
+function fmtNum(v,dec=2){ return (v===null||v===undefined) ? '—' : v.toFixed(dec); }
+function fmtTime(min){ if(min===null||min===undefined) return '—'; const h=Math.floor(min/60), m=Math.round(min%60); return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+function fmtScore(v){ return (v===null||v===undefined) ? '—' : Math.round(v); }
+function avg(arr){ const vals = arr.filter(v=>v!==null && v!==undefined && !isNaN(v)); if(vals.length===0) return null; return vals.reduce((a,b)=>a+b,0)/vals.length; }
+
+TECS.forEach(t=>{
+  t.display = prettyName(t.nome);
+  t.composite = computeComposite(t);
+  t.slug = slugify(t.nome);
+});
+
+const gestores = {};
+TECS.forEach(t=>{ (gestores[t.gestor] ||= []).push(t); });
+
+const companyAvgComposite = avg(TECS.map(t=>t.composite));
+
+const IND_DEFS = [
+  {key:'nps', label:'NPS', meta:METAS.nps, dir:'higher', fmt:v=>fmtPct(v)},
+  {key:'eficiencia', label:'Eficiência', meta:METAS.eficiencia, dir:'higher', fmt:v=>fmtPct(v)},
+  {key:'wo_min', label:'1º W.O. (horário médio)', meta:METAS.wo_min, dir:'lower', fmt:v=>fmtTime(v)},
+  {key:'revisita_ativacao', label:'Revisita Ativação', meta:METAS.revisita_ativacao, dir:'lower', fmt:v=>fmtPct(v)},
+  {key:'revisita_reparo', label:'Revisita Reparo', meta:METAS.revisita_reparo, dir:'lower', fmt:v=>fmtPct(v)},
+  {key:'produtividade', label:'Produtividade', meta:METAS.produtividade, dir:'higher', fmt:v=>fmtNum(v,2)},
+];
+function indStatus(val, def){
+  if(val===null||val===undefined) return null;
+  if(def.dir==='higher'){ if(val>=def.meta) return 'green'; if(val>=def.meta*0.9) return 'amber'; return 'red'; }
+  else { if(val<=def.meta) return 'green'; if(val<=def.meta*1.2) return 'amber'; return 'red'; }
+}
+function indRatio(val, def){
+  if(val===null||val===undefined) return 0;
+  if(def.dir==='higher') return clamp(val/def.meta, 0, 1);
+  return clamp(def.meta/Math.max(val,0.0001), 0, 1);
+}
+function metaLabel(def){ return def.key==='wo_min' ? fmtTime(def.meta) : (def.key==='produtividade' ? fmtNum(def.meta,2) : fmtPct(def.meta)); }
+
+/* ================= AUTH HELPERS ================= */
+async function sha256(text){
+  const buf = new TextEncoder().encode(text);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+let selectedTech = null;
+let hasAccount = null;
+
+const nameInput = document.getElementById('name-input');
+const suggestList = document.getElementById('suggest-list');
+const continueBtn = document.getElementById('continue-btn');
+const nameMsg = document.getElementById('name-msg');
+const stepName = document.getElementById('step-name');
+const stepAuth = document.getElementById('step-auth');
+const selectedNameChip = document.getElementById('selected-name-chip');
+const authFirstAccess = document.getElementById('auth-first-access');
+const authLogin = document.getElementById('auth-login');
+const authMsg = document.getElementById('auth-msg');
+
+function renderSuggestions(){
+  const q = nameInput.value.trim().toLowerCase();
+  selectedTech = null;
+  continueBtn.disabled = true;
+  if(q.length < 2){ suggestList.style.display='none'; return; }
+  const matches = TECS.filter(t=>t.display.toLowerCase().includes(q)).slice(0,8);
+  if(matches.length===0){ suggestList.style.display='none'; return; }
+  suggestList.innerHTML = matches.map(t=>`<button type="button" data-slug="${t.slug}">${t.display}<span class="g">${t.gestor.charAt(0)+t.gestor.slice(1).toLowerCase()}</span></button>`).join('');
+  suggestList.style.display = 'block';
+  suggestList.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = TECS.find(x=>x.slug===btn.dataset.slug);
+      selectedTech = t;
+      nameInput.value = t.display;
+      suggestList.style.display = 'none';
+      continueBtn.disabled = false;
+    });
+  });
+}
+nameInput.addEventListener('input', renderSuggestions);
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.field-wrap')) suggestList.style.display='none';
+});
+
+continueBtn.addEventListener('click', async ()=>{
+  if(!selectedTech) return;
+  nameMsg.innerHTML = '';
+  continueBtn.disabled = true;
+  continueBtn.innerHTML = '<span class="spinner"></span>Verificando...';
+  try{
+    let found = null;
+    try{
+      found = await window.storage.get('auth:'+selectedTech.slug, true);
+    }catch(e){ found = null; }
+    hasAccount = !!(found && found.value);
+    selectedNameChip.textContent = selectedTech.display + ' · ' + selectedTech.gestor.charAt(0) + selectedTech.gestor.slice(1).toLowerCase();
+    stepName.style.display = 'none';
+    stepAuth.style.display = 'block';
+    authFirstAccess.style.display = hasAccount ? 'none' : 'block';
+    authLogin.style.display = hasAccount ? 'block' : 'none';
+  }catch(err){
+    nameMsg.innerHTML = '<div class="msg err">Não consegui verificar seu cadastro agora. Tente novamente em instantes.</div>';
+  }finally{
+    continueBtn.disabled = false;
+    continueBtn.textContent = 'Continuar';
+  }
+});
+
+document.getElementById('back-to-name').addEventListener('click', ()=>{
+  stepAuth.style.display = 'none';
+  stepName.style.display = 'block';
+  authMsg.innerHTML = '';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-new2').value = '';
+  document.getElementById('pw-existing').value = '';
+});
+
+document.getElementById('create-pw-btn').addEventListener('click', async ()=>{
+  const p1 = document.getElementById('pw-new').value;
+  const p2 = document.getElementById('pw-new2').value;
+  authMsg.innerHTML = '';
+  if(p1.length < 4){ authMsg.innerHTML = '<div class="msg err">A senha precisa ter pelo menos 4 caracteres.</div>'; return; }
+  if(p1 !== p2){ authMsg.innerHTML = '<div class="msg err">As senhas não conferem.</div>'; return; }
+  const btn = document.getElementById('create-pw-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Criando...';
+  try{
+    const hash = await sha256(selectedTech.slug + ':' + p1);
+    const result = await window.storage.set('auth:'+selectedTech.slug, JSON.stringify({hash, createdAt: Date.now()}), true);
+    if(!result){ throw new Error('save failed'); }
+    enterDashboard(selectedTech);
+  }catch(err){
+    authMsg.innerHTML = '<div class="msg err">Não consegui salvar sua senha agora. Tente novamente.</div>';
+    btn.disabled = false; btn.textContent = 'Criar senha e entrar';
+  }
+});
+
+document.getElementById('login-btn').addEventListener('click', async ()=>{
+  const p = document.getElementById('pw-existing').value;
+  authMsg.innerHTML = '';
+  if(!p){ authMsg.innerHTML = '<div class="msg err">Digite sua senha.</div>'; return; }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Entrando...';
+  try{
+    const stored = await window.storage.get('auth:'+selectedTech.slug, true);
+    const parsed = JSON.parse(stored.value);
+    const hash = await sha256(selectedTech.slug + ':' + p);
+    if(hash === parsed.hash){
+      enterDashboard(selectedTech);
+    }else{
+      authMsg.innerHTML = '<div class="msg err">Senha incorreta.</div>';
+      btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  }catch(err){
+    authMsg.innerHTML = '<div class="msg err">Não consegui validar seu login agora. Tente novamente.</div>';
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', ()=>{
+  location.reload();
+});
+
+/* ================= ADMIN AUTH ================= */
+const ADMIN_SLUG = 'master-admin-cip';
+const gotoAdminBtn = document.getElementById('goto-admin-btn');
+const stepAdmin = document.getElementById('step-admin');
+const adminFirstAccess = document.getElementById('admin-first-access');
+const adminLogin = document.getElementById('admin-login');
+const adminAuthMsg = document.getElementById('admin-auth-msg');
+
+gotoAdminBtn.addEventListener('click', async ()=>{
+  stepName.style.display = 'none';
+  stepAdmin.style.display = 'block';
+  adminAuthMsg.innerHTML = '<span class="spinner"></span> Verificando...';
+  let found = null;
+  try{ found = await window.storage.get('auth:'+ADMIN_SLUG, true); }catch(e){ found = null; }
+  adminAuthMsg.innerHTML = '';
+  const hasAdmin = !!(found && found.value);
+  adminFirstAccess.style.display = hasAdmin ? 'none' : 'block';
+  adminLogin.style.display = hasAdmin ? 'block' : 'none';
+});
+
+document.getElementById('back-to-name-from-admin').addEventListener('click', ()=>{
+  stepAdmin.style.display = 'none';
+  stepName.style.display = 'block';
+  adminAuthMsg.innerHTML = '';
+});
+
+document.getElementById('admin-create-pw-btn').addEventListener('click', async ()=>{
+  const p1 = document.getElementById('admin-pw-new').value;
+  const p2 = document.getElementById('admin-pw-new2').value;
+  adminAuthMsg.innerHTML = '';
+  if(p1.length < 6){ adminAuthMsg.innerHTML = '<div class="msg err">A senha master precisa ter pelo menos 6 caracteres.</div>'; return; }
+  if(p1 !== p2){ adminAuthMsg.innerHTML = '<div class="msg err">As senhas não conferem.</div>'; return; }
+  const btn = document.getElementById('admin-create-pw-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Criando...';
+  try{
+    const hash = await sha256(ADMIN_SLUG + ':' + p1);
+    const result = await window.storage.set('auth:'+ADMIN_SLUG, JSON.stringify({hash, createdAt: Date.now()}), true);
+    if(!result){ throw new Error('save failed'); }
+    enterAdmin();
+  }catch(err){
+    adminAuthMsg.innerHTML = '<div class="msg err">Não consegui salvar a senha master agora. Tente novamente.</div>';
+    btn.disabled = false; btn.textContent = 'Criar senha master e entrar';
+  }
+});
+
+document.getElementById('admin-login-btn').addEventListener('click', async ()=>{
+  const p = document.getElementById('admin-pw-existing').value;
+  adminAuthMsg.innerHTML = '';
+  if(!p){ adminAuthMsg.innerHTML = '<div class="msg err">Digite a senha master.</div>'; return; }
+  const btn = document.getElementById('admin-login-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Entrando...';
+  try{
+    const stored = await window.storage.get('auth:'+ADMIN_SLUG, true);
+    const parsed = JSON.parse(stored.value);
+    const hash = await sha256(ADMIN_SLUG + ':' + p);
+    if(hash === parsed.hash){
+      enterAdmin();
+    }else{
+      adminAuthMsg.innerHTML = '<div class="msg err">Senha master incorreta.</div>';
+      btn.disabled = false; btn.textContent = 'Entrar como administrador';
+    }
+  }catch(err){
+    adminAuthMsg.innerHTML = '<div class="msg err">Não consegui validar o login agora. Tente novamente.</div>';
+    btn.disabled = false; btn.textContent = 'Entrar como administrador';
+  }
+});
+
+document.getElementById('admin-logout-btn').addEventListener('click', ()=>{
+  location.reload();
+});
+
+/* ================= ADMIN DASHBOARD (visão completa) ================= */
+const GHEX = {};
+Object.keys(gestores).forEach(g=>{ GHEX[g] = colorFor(g); });
+
+function tierHex(tier){
+  return tier==='good' ? '#34d399' : tier==='warn' ? '#f2b84b' : tier==='crit' ? '#f0576b' : '#5d6b7a';
+}
+function fmtInt(v){ return (v===null||v===undefined) ? '—' : Math.round(v); }
+function sum(arr){ return arr.reduce((a,b)=>a+(b||0),0); }
+
+function gestorStats(list){
+  return {
+    count: list.length,
+    avgComposite: avg(list.map(t=>t.composite)),
+    avgEficiencia: avg(list.map(t=>t.eficiencia)),
+    avgRevisitaAtivacao: avg(list.map(t=>t.revisita_ativacao)),
+    avgRevisitaReparo: avg(list.map(t=>t.revisita_reparo)),
+    avgProdutividade: avg(list.map(t=>t.produtividade)),
+    avgWo: avg(list.map(t=>t.wo_min)),
+    totalAtividades: sum(list.map(t=>t.total_geral)),
+  };
+}
+
+function renderAdminBanner(){
+  const all = TECS;
+  const totalAtiv = sum(all.map(t=>t.total_geral));
+  const avgComp = avg(all.map(t=>t.composite));
+  const avgEfic = avg(all.map(t=>t.eficiencia));
+  document.getElementById('admin-banner').innerHTML = `
+    <div class="cell"><div class="label">Técnicos ativos</div><div class="value">${all.length}</div></div>
+    <div class="cell"><div class="label">Gestores</div><div class="value">${Object.keys(gestores).length}</div></div>
+    <div class="cell"><div class="label">Índice geral (empresa)</div><div class="value accent">${fmtScore(avgComp)}</div></div>
+    <div class="cell"><div class="label">Eficiência média</div><div class="value">${fmtPct(avgEfic)}</div></div>
+  `;
+}
+
+function miniBarRow(label, valueStr, pct01, tier){
+  const w = clamp(pct01,0,1)*100;
+  return `<div class="mini-metric">
+    <div class="mlabel">${label}</div>
+    <div class="mini-bar"><i class="bar-${tier}" style="width:${w}%"></i></div>
+    <div class="mval">${valueStr}</div>
+  </div>`;
+}
+
+function renderAdminGestorGrid(){
+  const grid = document.getElementById('admin-gestor-grid');
+  const entries = Object.entries(gestores).map(([g,list])=>({g,list,stats:gestorStats(list)}));
+  entries.sort((a,b)=> (b.stats.avgComposite||0) - (a.stats.avgComposite||0));
+  grid.innerHTML = entries.map(({g,list,stats})=>{
+    const tier = tierOf(stats.avgComposite);
+    const eficTier = tierOf(scoreHigherBetter(stats.avgEficiencia, METAS.eficiencia));
+    const revTier = tierOf(scoreLowerBetter(stats.avgRevisitaAtivacao, METAS.revisita_ativacao));
+    const prodTier = tierOf(scoreHigherBetter(stats.avgProdutividade, METAS.produtividade));
+    return `
+    <button class="gestor-card" style="--gcolor:${GHEX[g]}" data-gestor="${g}">
+      <span class="arrow-hint">→</span>
+      <div class="row1">
+        <div class="gname">${g.charAt(0)+g.slice(1).toLowerCase()}<small>Gestor de equipe</small></div>
+        <div class="headcount">${stats.count} técnicos</div>
+      </div>
+      <div class="composite-row">
+        <div class="composite tier-${tier}">${fmtScore(stats.avgComposite)}</div>
+        <div class="composite-label">índice geral / 100</div>
+      </div>
+      <div class="mini-metrics">
+        ${miniBarRow('Eficiência', fmtPct(stats.avgEficiencia), (stats.avgEficiencia||0)/METAS.eficiencia, eficTier)}
+        ${miniBarRow('Revisita Ativ.', fmtPct(stats.avgRevisitaAtivacao), 1-clamp((stats.avgRevisitaAtivacao||0)/(METAS.revisita_ativacao*3),0,1), revTier)}
+        ${miniBarRow('Produtividade', fmtNum(stats.avgProdutividade,2), (stats.avgProdutividade||0)/METAS.produtividade, prodTier)}
+      </div>
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('.gestor-card').forEach(card=>{
+    card.addEventListener('click', ()=> openAdminDetail(card.dataset.gestor));
+  });
+}
+
+let adminGestorChart;
+function renderAdminGestorChart(){
+  const entries = Object.entries(gestores).map(([g,list])=>({g,stats:gestorStats(list)}));
+  entries.sort((a,b)=> (b.stats.avgComposite||0) - (a.stats.avgComposite||0));
+  const labels = entries.map(e=> e.g.charAt(0)+e.g.slice(1).toLowerCase());
+  const values = entries.map(e=> e.stats.avgComposite || 0);
+  const colors = entries.map(e=> tierHex(tierOf(e.stats.avgComposite)));
+  const ctx = document.getElementById('admin-gestor-chart');
+  if(adminGestorChart) adminGestorChart.destroy();
+  adminGestorChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Índice geral', data:values, backgroundColor:colors, borderRadius:6, barThickness:34 }]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:(c)=>`Índice: ${Math.round(c.raw)}`}} },
+      scales:{
+        x:{ min:0, max:100, grid:{color:'#1b222b'}, ticks:{color:'#9aa7b5', font:{family:"IBM Plex Mono", size:11}} },
+        y:{ grid:{display:false}, ticks:{color:'#eaf0f5', font:{family:"Space Grotesk", size:13} } }
+      }
+    }
+  });
+}
+
+const METRIC_DEFS = {
+  composite: {label:'Índice Geral', higherBetter:true, meta:null, fmt:v=>fmtScore(v), get:t=>t.composite},
+  eficiencia: {label:'Eficiência', higherBetter:true, meta:METAS.eficiencia, fmt:v=>fmtPct(v), get:t=>t.eficiencia},
+  revisita_ativacao: {label:'Revisita Ativação', higherBetter:false, meta:METAS.revisita_ativacao, fmt:v=>fmtPct(v), get:t=>t.revisita_ativacao},
+  revisita_reparo: {label:'Revisita Reparo', higherBetter:false, meta:METAS.revisita_reparo, fmt:v=>fmtPct(v), get:t=>t.revisita_reparo},
+  produtividade: {label:'Produtividade', higherBetter:true, meta:METAS.produtividade, fmt:v=>fmtNum(v,2), get:t=>t.produtividade},
+  wo_min: {label:'1º W.O. (horário médio)', higherBetter:false, meta:METAS.wo_min, fmt:v=>fmtTime(v), get:t=>t.wo_min},
+  total_geral: {label:'Total de Atividades', higherBetter:true, meta:null, fmt:v=>fmtInt(v), get:t=>t.total_geral},
+};
+let currentAdminGestor = null;
+let adminSortState = {key:'composite', dir:'desc'};
+let adminExpandedTechKey = null;
+
+function metricScoreFor(key, t){
+  if(key==='composite') return t.composite;
+  const def = METRIC_DEFS[key];
+  if(def.meta===null) return null;
+  return def.higherBetter ? scoreHigherBetter(def.get(t), def.meta) : scoreLowerBetter(def.get(t), def.meta);
+}
+function populateMetricSelect(){
+  const sel = document.getElementById('admin-metric-select');
+  sel.innerHTML = Object.entries(METRIC_DEFS).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join('');
+  sel.value = 'composite';
+  sel.onchange = ()=> renderAdminTechChart(currentAdminGestor, sel.value);
+}
+
+function openAdminDetail(gestor){
+  currentAdminGestor = gestor;
+  adminExpandedTechKey = null;
+  document.getElementById('admin-overview-panel').style.display = 'none';
+  document.getElementById('admin-detail-panel').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('admin-chip-swatch').style.background = GHEX[gestor];
+  document.getElementById('admin-chip-swatch').style.boxShadow = `0 0 10px ${GHEX[gestor]}`;
+  document.getElementById('admin-chip-name').textContent = gestor.charAt(0)+gestor.slice(1).toLowerCase();
+  document.getElementById('admin-chip-count').textContent = `${gestores[gestor].length} técnicos`;
+  renderAdminTeamStrip(gestor);
+  populateMetricSelect();
+  renderAdminTechChart(gestor, 'composite');
+  renderAdminTechTable(gestor);
+}
+function closeAdminDetail(){
+  document.getElementById('admin-detail-panel').style.display = 'none';
+  document.getElementById('admin-overview-panel').style.display = 'block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.getElementById('admin-back-btn').addEventListener('click', closeAdminDetail);
+
+function renderAdminTeamStrip(gestor){
+  const s = gestorStats(gestores[gestor]);
+  document.getElementById('admin-team-strip').innerHTML = `
+    <div class="cell"><div class="label">Índice geral da equipe</div><div class="value" style="color:${tierHex(tierOf(s.avgComposite))}">${fmtScore(s.avgComposite)}</div></div>
+    <div class="cell"><div class="label">Eficiência média</div><div class="value">${fmtPct(s.avgEficiencia)}</div></div>
+    <div class="cell"><div class="label">Revisita Ativação</div><div class="value">${fmtPct(s.avgRevisitaAtivacao)}</div></div>
+    <div class="cell"><div class="label">Revisita Reparo</div><div class="value">${fmtPct(s.avgRevisitaReparo)}</div></div>
+    <div class="cell"><div class="label">Produtividade média</div><div class="value">${fmtNum(s.avgProdutividade,2)}</div></div>
+    <div class="cell"><div class="label">1º W.O. médio</div><div class="value">${fmtTime(s.avgWo)}</div></div>
+    <div class="cell"><div class="label">Atividades totais</div><div class="value">${s.totalAtividades}</div></div>
+  `;
+}
+
+let adminTechChart;
+function renderAdminTechChart(gestor, metricKey){
+  const def = METRIC_DEFS[metricKey];
+  const list = [...gestores[gestor]];
+  list.sort((a,b)=>{
+    const va = def.get(a), vb = def.get(b);
+    const na = (va===null||va===undefined), nb=(vb===null||vb===undefined);
+    if(na && nb) return 0; if(na) return 1; if(nb) return -1;
+    return def.higherBetter===false ? va-vb : vb-va;
+  });
+  const labels = list.map(t=>t.display);
+  const values = list.map(t=> def.get(t));
+  const colors = list.map(t=> tierHex(tierOf(metricScoreFor(metricKey, t))));
+  const ctx = document.getElementById('admin-tech-chart');
+  if(adminTechChart) adminTechChart.destroy();
+  adminTechChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:def.label, data: values.map(v=>v===null||v===undefined?0:v), backgroundColor:colors, borderRadius:5 }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=> def.fmt(values[c.dataIndex]) } } },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ color:'#9aa7b5', font:{family:"Inter", size:10}, maxRotation:55, minRotation:55 } },
+        y:{ grid:{color:'#1b222b'}, ticks:{ color:'#9aa7b5', font:{family:"IBM Plex Mono", size:11},
+              callback:(v)=> metricKey==='wo_min' ? fmtTime(v) : (metricKey==='eficiencia'||metricKey==='revisita_ativacao'||metricKey==='revisita_reparo' ? Math.round(v*100)+'%' : v) } }
+      }
+    }
+  });
+}
+
+const TABLE_COLS = [
+  {key:'display', label:'Técnico', sort:(t)=>t.display},
+  {key:'composite', label:'Índice', sort:(t)=>t.composite, fmt:(t)=>`<span class="badge" style="background:${tierHex(tierOf(t.composite))}22;color:${tierHex(tierOf(t.composite))}">${fmtScore(t.composite)}</span>`},
+  {key:'eficiencia', label:'Eficiência', sort:(t)=>t.eficiencia, fmt:(t)=>fmtPct(t.eficiencia)},
+  {key:'revisita_ativacao', label:'Rev. Ativação', sort:(t)=>t.revisita_ativacao, fmt:(t)=>fmtPct(t.revisita_ativacao)},
+  {key:'revisita_reparo', label:'Rev. Reparo', sort:(t)=>t.revisita_reparo, fmt:(t)=>fmtPct(t.revisita_reparo)},
+  {key:'produtividade', label:'Produtividade', sort:(t)=>t.produtividade, fmt:(t)=>fmtNum(t.produtividade,2)},
+  {key:'wo_min', label:'1º W.O.', sort:(t)=>t.wo_min, fmt:(t)=>fmtTime(t.wo_min)},
+  {key:'total_geral', label:'Ativ. Totais', sort:(t)=>t.total_geral, fmt:(t)=>fmtInt(t.total_geral)},
+  {key:'cq', label:'CQ', sort:(t)=>t.cq, fmt:(t)=>fmtInt(t.cq)},
+];
+
+function adminTechDetailHTML(t){
+  const indHTML = IND_DEFS.map(d=>{
+    const val = t[d.key];
+    const s = indStatus(val, d);
+    const ratio = indRatio(val, d);
+    return `
+      <div class="ind-row">
+        <span class="iname">${d.label}</span>
+        <span class="ival">${d.fmt(val)} <span class="meta-note">/ meta ${metaLabel(d)}</span>${s?`<span class="status-dot ${s}"></span>`:''}</span>
+      </div>
+      <div class="ind-bar-track"><div class="ind-bar-fill ${s||''}" style="width:${(ratio*100).toFixed(0)}%"></div></div>
+    `;
+  }).join('');
+  const volItems = [
+    {n:t.ativacao, l:'Ativação'}, {n:t.ativacao_corp, l:'Ativ. Corporativo'},
+    {n:t.rem_ext, l:'Rem. Externo'}, {n:t.rem_int, l:'Rem. Interno'},
+    {n:t.reparo, l:'Reparo'}, {n:t.mesh, l:'Mesh'}, {n:t.cq, l:'Ocorr. CQ'},
+    {n:t.dias_trab, l:'Dias Trab.'}, {n:t.total_geral, l:'Total Geral', total:true},
+  ];
+  const volHTML = volItems.map(v=>`<div class="vol-item ${v.total?'total':''}"><div class="n">${v.n===null||v.n===undefined?'—':v.n}</div><div class="l">${v.l}</div></div>`).join('');
+  return `
+    <div class="tech-detail">
+      <div class="td-block"><h4>Indicadores vs. Meta</h4>${indHTML}</div>
+      <div class="td-block"><h4>Volume operacional no período</h4><div class="vol-grid">${volHTML}</div></div>
+    </div>
+  `;
+}
+
+function renderAdminTableHead(){
+  const row = document.getElementById('admin-tech-thead-row');
+  row.innerHTML = TABLE_COLS.map(c=>`<th data-key="${c.key}">${c.label}</th>`).join('');
+  row.querySelectorAll('th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      if(adminSortState.key===key){ adminSortState.dir = adminSortState.dir==='desc'?'asc':'desc'; }
+      else { adminSortState = {key, dir:'desc'}; }
+      renderAdminTechTable(currentAdminGestor);
+    });
+  });
+}
+
+function renderAdminTechTable(gestor){
+  const list = [...gestores[gestor]];
+  const col = TABLE_COLS.find(c=>c.key===adminSortState.key);
+  list.sort((a,b)=>{
+    let va = col.sort(a), vb = col.sort(b);
+    if(typeof va === 'string'){ return adminSortState.dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
+    const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+    if(na&&nb) return 0; if(na) return 1; if(nb) return -1;
+    return adminSortState.dir==='asc' ? va-vb : vb-va;
+  });
+  const thead = document.getElementById('admin-tech-thead-row');
+  thead.querySelectorAll('th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.key===adminSortState.key);
+    th.classList.toggle('asc', th.dataset.key===adminSortState.key && adminSortState.dir==='asc');
+  });
+  const tbody = document.getElementById('admin-tech-tbody');
+  tbody.innerHTML = list.map(t=>{
+    const rowKey = gestor+'|'+t.nome;
+    const isOpen = adminExpandedTechKey === rowKey;
+    const mainRow = `<tr class="tech-row ${isOpen?'is-open':''}" data-key="${rowKey.replace(/"/g,'&quot;')}">${TABLE_COLS.map(c=> `<td>${c.fmt ? c.fmt(t) : t[c.key]}</td>`).join('')}</tr>`;
+    const detailRow = isOpen ? `<tr class="tech-detail-row"><td colspan="${TABLE_COLS.length}">${adminTechDetailHTML(t)}</td></tr>` : '';
+    return mainRow + detailRow;
+  }).join('');
+  tbody.querySelectorAll('tr.tech-row').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const key = tr.dataset.key;
+      adminExpandedTechKey = adminExpandedTechKey===key ? null : key;
+      renderAdminTechTable(gestor);
+    });
+  });
+}
+
+function enterAdmin(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-dashboard').style.display = 'block';
+  renderAdminBanner();
+  renderAdminGestorGrid();
+  renderAdminGestorChart();
+  renderAdminTableHead();
+  renderAccessTable();
+}
+
+/* ================= ADMIN: GERENCIAR ACESSOS ================= */
+let registeredSlugs = new Set();
+let accessSearchTerm = '';
+
+async function refreshRegisteredSlugs(){
+  try{
+    const result = await window.storage.list('auth:', true);
+    const keys = (result && result.keys) || [];
+    registeredSlugs = new Set(keys.map(k=>k.replace(/^auth:/,'')).filter(s=>s!==ADMIN_SLUG));
+  }catch(e){
+    registeredSlugs = new Set();
+  }
+}
+
+async function renderAccessTable(){
+  const msg = document.getElementById('access-msg');
+  msg.innerHTML = '<span class="spinner"></span> Carregando status de acesso...';
+  await refreshRegisteredSlugs();
+  msg.innerHTML = '';
+
+  const tbody = document.getElementById('access-tbody');
+  const term = accessSearchTerm.toLowerCase();
+  const list = TECS.filter(t=>t.display.toLowerCase().includes(term))
+    .sort((a,b)=>a.display.localeCompare(b.display));
+
+  tbody.innerHTML = list.map(t=>{
+    const has = registeredSlugs.has(t.slug);
+    const statusHTML = has
+      ? `<span class="badge" style="background:var(--good-dim);color:var(--good);">Senha criada</span>`
+      : `<span class="badge" style="background:var(--border-soft);color:var(--text-mute);">Aguardando 1º acesso</span>`;
+    return `<tr>
+      <td style="text-align:left;font-family:var(--font-body);color:var(--text);">${t.display}</td>
+      <td>${t.gestor.charAt(0)+t.gestor.slice(1).toLowerCase()}</td>
+      <td>${statusHTML}</td>
+      <td>${has ? `<button class="back-btn reset-pw-btn" data-slug="${t.slug}" data-name="${t.display.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;">Redefinir senha</button>` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.reset-pw-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> confirmResetPassword(btn));
+  });
+}
+
+function confirmResetPassword(btn){
+  const slug = btn.dataset.slug;
+  const name = btn.dataset.name;
+  if(btn.dataset.confirming === '1'){
+    doResetPassword(slug, name);
+    return;
+  }
+  btn.dataset.confirming = '1';
+  btn.textContent = 'Confirmar? clique de novo';
+  btn.style.borderColor = 'var(--crit)';
+  btn.style.color = 'var(--crit)';
+  setTimeout(()=>{
+    if(btn.dataset.confirming === '1'){
+      btn.dataset.confirming = '0';
+      btn.textContent = 'Redefinir senha';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+    }
+  }, 4000);
+}
+
+async function doResetPassword(slug, name){
+  const msg = document.getElementById('access-msg');
+  msg.innerHTML = '<span class="spinner"></span> Redefinindo senha...';
+  try{
+    await window.storage.delete('auth:'+slug, true);
+    msg.innerHTML = `<div class="msg ok">Senha de <b>${name}</b> redefinida. No próximo login, será tratado como primeiro acesso.</div>`;
+    renderAccessTable();
+  }catch(e){
+    msg.innerHTML = `<div class="msg err">Não consegui redefinir agora. Tente novamente.</div>`;
+  }
+}
+
+document.getElementById('access-search').addEventListener('input', (e)=>{
+  accessSearchTerm = e.target.value;
+  renderAccessTable();
+});
+
+/* ================= ADMIN: TROCAR SENHA MASTER ================= */
+document.getElementById('toggle-master-pw').addEventListener('click', ()=>{
+  const form = document.getElementById('master-pw-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('save-master-pw-btn').addEventListener('click', async ()=>{
+  const cur = document.getElementById('master-pw-current').value;
+  const n1 = document.getElementById('master-pw-new2f').value;
+  const n2 = document.getElementById('master-pw-confirm2f').value;
+  const msg = document.getElementById('master-pw-msg');
+  msg.innerHTML = '';
+  if(!cur){ msg.innerHTML = '<div class="msg err">Digite sua senha master atual.</div>'; return; }
+  if(n1.length < 6){ msg.innerHTML = '<div class="msg err">A nova senha precisa ter pelo menos 6 caracteres.</div>'; return; }
+  if(n1 !== n2){ msg.innerHTML = '<div class="msg err">As novas senhas não conferem.</div>'; return; }
+  const btn = document.getElementById('save-master-pw-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Salvando...';
+  try{
+    const stored = await window.storage.get('auth:'+ADMIN_SLUG, true);
+    const parsed = JSON.parse(stored.value);
+    const curHash = await sha256(ADMIN_SLUG + ':' + cur);
+    if(curHash !== parsed.hash){
+      msg.innerHTML = '<div class="msg err">Senha master atual incorreta.</div>';
+      btn.disabled = false; btn.textContent = 'Salvar nova senha master';
+      return;
+    }
+    const newHash = await sha256(ADMIN_SLUG + ':' + n1);
+    await window.storage.set('auth:'+ADMIN_SLUG, JSON.stringify({hash:newHash, createdAt:Date.now()}), true);
+    msg.innerHTML = '<div class="msg ok">Senha master atualizada com sucesso.</div>';
+    document.getElementById('master-pw-current').value = '';
+    document.getElementById('master-pw-new2f').value = '';
+    document.getElementById('master-pw-confirm2f').value = '';
+  }catch(e){
+    msg.innerHTML = '<div class="msg err">Não consegui atualizar agora. Tente novamente.</div>';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Salvar nova senha master';
+  }
+});
+
+/* ================= DASHBOARD RENDER ================= */
+let compareChart;
+function enterDashboard(t){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  document.getElementById('dash-title').textContent = 'Olá, ' + t.display.split(' ')[0];
+  document.getElementById('dash-subtitle').textContent = `Equipe de ${t.gestor.charAt(0)+t.gestor.slice(1).toLowerCase()} — seus indicadores do período.`;
+
+  const gcolor = colorFor(t.gestor);
+  const tier = tierOf(t.composite);
+  const scoreCard = document.getElementById('score-card');
+  scoreCard.style.setProperty('--gcolor', gcolor);
+  const scoreEl = document.getElementById('score-value');
+  scoreEl.textContent = fmtScore(t.composite);
+  scoreEl.className = 'score tier-' + tier;
+
+  const teamList = gestores[t.gestor];
+  const teamAvg = avg(teamList.map(x=>x.composite));
+  document.getElementById('score-compare').innerHTML = `
+    Média da equipe (${t.gestor.charAt(0)+t.gestor.slice(1).toLowerCase()}): <b>${fmtScore(teamAvg)}</b><br>
+    Média geral da empresa: <b>${fmtScore(companyAvgComposite)}</b>
+  `;
+
+  const indHTML = IND_DEFS.map(d=>{
+    const val = t[d.key];
+    const s = indStatus(val, d);
+    const ratio = indRatio(val, d);
+    return `
+      <div class="ind-row">
+        <span class="iname">${d.label}</span>
+        <span class="ival">${d.fmt(val)} <span class="meta-note">/ meta ${metaLabel(d)}</span>${s?`<span class="status-dot ${s}"></span>`:''}</span>
+      </div>
+      <div class="ind-bar-track"><div class="ind-bar-fill ${s||''}" style="width:${(ratio*100).toFixed(0)}%"></div></div>
+    `;
+  }).join('');
+  document.getElementById('ind-block').innerHTML = indHTML;
+
+  const volItems = [
+    {n:t.ativacao, l:'Ativação'},
+    {n:t.ativacao_corp, l:'Ativ. Corporativo'},
+    {n:t.rem_ext, l:'Rem. Externo'},
+    {n:t.rem_int, l:'Rem. Interno'},
+    {n:t.reparo, l:'Reparo'},
+    {n:t.mesh, l:'Mesh'},
+    {n:t.cq, l:'Ocorr. CQ'},
+    {n:t.dias_trab, l:'Dias Trab.'},
+    {n:t.total_geral, l:'Total Geral', total:true},
+  ];
+  document.getElementById('vol-block').innerHTML = volItems.map(v=>`<div class="vol-item ${v.total?'total':''}"><div class="n">${v.n===null||v.n===undefined?'—':v.n}</div><div class="l">${v.l}</div></div>`).join('');
+
+  const labels = IND_DEFS.map(d=>d.label);
+  const youVals = IND_DEFS.map(d=>Math.round(indRatio(t[d.key],d)*100));
+  const teamVals = IND_DEFS.map(d=>{
+    const vals = teamList.map(x=>indRatio(x[d.key],d)*100).filter(v=>!isNaN(v));
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  });
+  const ctx = document.getElementById('compare-chart');
+  if(compareChart) compareChart.destroy();
+  compareChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {label:'Você', data:youVals, backgroundColor: gcolor, borderRadius:4},
+        {label:'Média da equipe', data:teamVals, backgroundColor: 'rgba(154,167,181,0.35)', borderRadius:4},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        y:{ min:0, max:100, ticks:{color:'#9aa7b5', font:{size:10}}, grid:{color:'#1b222b'} },
+        x:{ ticks:{color:'#9aa7b5', font:{size:10}}, grid:{display:false} }
+      },
+      plugins:{ legend:{ labels:{ color:'#9aa7b5', font:{size:11} } } }
+    }
+  });
+}
+</script>
+</body>
+</html>
