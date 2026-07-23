@@ -401,6 +401,15 @@
       </button>
 
       <div id="access-panel-body" style="display:none;margin-top:18px;">
+        <div style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border);">
+          <h4 style="margin:0 0 4px;">Criar acesso de visualização</h4>
+          <p style="font-size:11.5px;color:var(--text-mute);margin:0 0 10px;">Pra alguém que só quer acompanhar todos os indicadores, sem ser gestor de nenhum técnico. Acesso só de leitura — sem editar valores ou gerenciar senhas.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="new-viewer-name" placeholder="Nome da pessoa" style="flex:1;min-width:200px;">
+            <button class="btn-primary" id="create-viewer-btn" style="padding:11px 16px;font-size:13px;white-space:nowrap;">+ Criar acesso</button>
+          </div>
+          <div id="create-viewer-msg" style="font-size:11.5px;margin-top:8px;"></div>
+        </div>
         <div class="field-wrap" style="margin-bottom:14px;max-width:360px;">
           <input type="text" id="access-search" placeholder="Buscar técnico por nome...">
         </div>
@@ -630,6 +639,73 @@ async function listAuthSlugs(){
   await authReady;
   const snap = await getDocs(collection(db, 'auth'));
   return snap.docs.map(d => d.id);
+}
+
+/* ---- Bloqueio de acesso: impede login/criação de senha mesmo sem apagar a senha existente ---- */
+async function getBlockedSlugs(){
+  try{
+    await authReady;
+    const snap = await getDoc(doc(db, 'config', 'bloqueios'));
+    return snap.exists() ? (snap.data().bloqueados || {}) : {};
+  }catch(e){
+    return {};
+  }
+}
+async function setSlugBlocked(slug, blocked){
+  await authReady;
+  const current = await getBlockedSlugs();
+  if(blocked){ current[slug] = true; } else { delete current[slug]; }
+  await setDoc(doc(db, 'config', 'bloqueios'), {bloqueados: current});
+}
+async function isSlugBlocked(slug){
+  const blocked = await getBlockedSlugs();
+  return !!blocked[slug];
+}
+
+/* ---- Visualizadores: pessoas com acesso completo só de leitura, sem estar na planilha ---- */
+async function getViewerNames(){
+  try{
+    await authReady;
+    const snap = await getDoc(doc(db, 'config', 'observadores'));
+    return snap.exists() ? (snap.data().nomes || []) : [];
+  }catch(e){
+    return [];
+  }
+}
+async function addViewerName(name){
+  await authReady;
+  const current = await getViewerNames();
+  if(!current.includes(name)) current.push(name);
+  await setDoc(doc(db, 'config', 'observadores'), {nomes: current});
+}
+async function removeViewerName(name){
+  await authReady;
+  const current = await getViewerNames();
+  const filtered = current.filter(n=>n!==name);
+  await setDoc(doc(db, 'config', 'observadores'), {nomes: filtered});
+}
+async function renameViewer(oldName, newName){
+  await authReady;
+  const oldSlug = 'viewer-' + slugify(oldName);
+  const newSlug = 'viewer-' + slugify(newName);
+
+  const names = await getViewerNames();
+  const idx = names.indexOf(oldName);
+  if(idx !== -1){ names[idx] = newName; } else { names.push(newName); }
+  await setDoc(doc(db, 'config', 'observadores'), {nomes: names});
+
+  if(oldSlug !== newSlug){
+    const authData = await getAuthDoc(oldSlug);
+    if(authData){
+      await setAuthDoc(newSlug, authData);
+      await deleteAuthDoc(oldSlug);
+    }
+    const blocked = await getBlockedSlugs();
+    if(blocked[oldSlug]){
+      await setSlugBlocked(oldSlug, false);
+      await setSlugBlocked(newSlug, true);
+    }
+  }
 }
 
 /* ---- Controle de visibilidade do card "Valor a Receber" para técnicos ---- */
@@ -1208,6 +1284,7 @@ async function sha256(text){
 }
 
 let selectedTech = null;
+let isViewerMode = false;
 let currentLoggedTech = null;
 let hasAccount = null;
 let authTarget = null; // { type:'tecnico'|'gestor', slug, label, gestorName? }
@@ -1254,6 +1331,11 @@ async function proceedToAuth(target, chipLabel){
   authTarget = target;
   nameMsg.innerHTML = '';
   try{
+    const blocked = await isSlugBlocked(target.slug);
+    if(blocked){
+      nameMsg.innerHTML = '<div class="msg err">Este acesso foi bloqueado. Fale com o administrador ou seu gestor.</div>';
+      return;
+    }
     let found = null;
     try{ found = await getAuthDoc(target.slug); }catch(e){ found = null; }
     hasAccount = !!found;
@@ -1281,20 +1363,29 @@ continueBtn.addEventListener('click', async ()=>{
 });
 
 /* ---- Fluxo: seleção de gestor ---- */
-document.getElementById('goto-gestor-btn').addEventListener('click', ()=>{
+document.getElementById('goto-gestor-btn').addEventListener('click', async ()=>{
   stepName.style.display = 'none';
   stepGestorName.style.display = 'block';
   const list = document.getElementById('gestor-name-list');
-  list.innerHTML = GESTOR_LIST.map(g=>`<button type="button" class="back-btn" data-gestor="${g}" style="width:100%;justify-content:center;padding:10px 14px;font-size:13.5px;">${g.charAt(0)+g.slice(1).toLowerCase()}</button>`).join('');
+  list.innerHTML = '<span class="spinner"></span>';
+  const viewerNames = await getViewerNames();
+  const gestorButtons = GESTOR_LIST.map(g=>`<button type="button" class="back-btn" data-type="gestor" data-gestor="${g}" style="width:100%;justify-content:center;padding:10px 14px;font-size:13.5px;">${g.charAt(0)+g.slice(1).toLowerCase()}</button>`);
+  const viewerButtons = viewerNames.map(n=>`<button type="button" class="back-btn" data-type="viewer" data-name="${n.replace(/"/g,'&quot;')}" style="width:100%;justify-content:center;padding:10px 14px;font-size:13.5px;">${n} <span style="color:var(--text-mute);font-size:11px;">(visualização)</span></button>`);
+  list.innerHTML = [...gestorButtons, ...viewerButtons].join('');
   list.querySelectorAll('button').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const g = btn.dataset.gestor;
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span>Verificando...';
-      await proceedToAuth(
-        {type:'gestor', slug: gestorSlug(g), gestorName: g},
-        g.charAt(0)+g.slice(1).toLowerCase() + ' · Gestor de equipe'
-      );
+      if(btn.dataset.type === 'viewer'){
+        const n = btn.dataset.name;
+        await proceedToAuth({type:'viewer', slug: 'viewer-' + slugify(n), viewerName: n}, n + ' · Visualizador');
+      } else {
+        const g = btn.dataset.gestor;
+        await proceedToAuth(
+          {type:'gestor', slug: gestorSlug(g), gestorName: g},
+          g.charAt(0)+g.slice(1).toLowerCase() + ' · Gestor de equipe'
+        );
+      }
     });
   });
 });
@@ -1325,6 +1416,7 @@ document.getElementById('create-pw-btn').addEventListener('click', async ()=>{
     const result = await setAuthDoc(authTarget.slug, {hash, createdAt: Date.now()});
     if(!result){ throw new Error('save failed'); }
     if(authTarget.type === 'tecnico'){ enterDashboard(selectedTech); }
+    else if(authTarget.type === 'viewer'){ enterViewer(authTarget.viewerName); }
     else { enterGestorDashboard(authTarget.gestorName); }
   }catch(err){
     authMsg.innerHTML = '<div class="msg err">Não consegui salvar sua senha agora. Tente novamente.</div>';
@@ -1343,6 +1435,7 @@ document.getElementById('login-btn').addEventListener('click', async ()=>{
     const hash = await sha256(authTarget.slug + ':' + p);
     if(hash === parsed.hash){
       if(authTarget.type === 'tecnico'){ enterDashboard(selectedTech); }
+      else if(authTarget.type === 'viewer'){ enterViewer(authTarget.viewerName); }
       else { enterGestorDashboard(authTarget.gestorName); }
     }else{
       authMsg.innerHTML = '<div class="msg err">Senha incorreta.</div>';
@@ -1673,7 +1766,7 @@ const TABLE_COLS = [
   {key:'total_geral', label:'Ativ. Totais', sort:(t)=>t.total_geral, fmt:(t)=>fmtInt(t.total_geral)},
   {key:'cq', label:'CQ', sort:(t)=>t.cq, fmt:(t)=>fmtInt(t.cq)},
   {key:'valor', label:'Valor', sort:(t)=>computeValorReceber(t).total, fmt:(t)=>fmtBRL(computeValorReceber(t).total)},
-  {key:'areas', label:'Áreas (Top 3)', sort:(t)=>(t.areasTop3 && t.areasTop3[0]) ? t.areasTop3[0].qty : 0, fmt:(t)=> (t.areasTop3 && t.areasTop3.length) ? t.areasTop3.map(a=>`${a.name} (${a.qty} · ${a.pct.toFixed(0)}%)`).join(' · ') : '—'},
+  {key:'areas', label:'Área principal', sort:(t)=>(t.areasTop3 && t.areasTop3[0]) ? t.areasTop3[0].qty : 0, fmt:(t)=> (t.areasTop3 && t.areasTop3.length) ? `${t.areasTop3[0].name} (${t.areasTop3[0].qty} · ${t.areasTop3[0].pct.toFixed(0)}%)` : '—'},
 ];
 
 function adminTechDetailHTML(t){
@@ -1729,6 +1822,7 @@ function adminTechDetailHTML(t){
         <div style="font-family:var(--font-mono);font-weight:700;font-size:26px;color:var(--good);margin-bottom:10px;">${fmtBRL(valorInfo.total)}</div>
         ${valorBreakdownHTML(t)}
 
+        ${!isViewerMode ? `
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
           <h4 style="margin:0 0 10px;">Lançamentos manuais</h4>
           <div class="manual-entries-list" data-slug="${t.slug}">${manualEntriesListHTML(t)}</div>
@@ -1752,6 +1846,12 @@ function adminTechDetailHTML(t){
           <button type="button" class="back-btn valor-individual-toggle" data-slug="${t.slug}" style="padding:6px 12px;font-size:12px;width:100%;">Verificando liberação individual...</button>
           <button type="button" class="btn-link valor-individual-reset" data-slug="${t.slug}" style="margin:8px 0 0;padding:0;font-size:11px;">Usar padrão geral (remover ajuste individual)</button>
         </div>
+        ` : `
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+          <h4 style="margin:0 0 10px;">Lançamentos manuais</h4>
+          <div class="manual-entries-list" data-slug="${t.slug}">${manualEntriesListHTML(t)}</div>
+        </div>
+        `}
       </div>
     </div>
   `;
@@ -1915,14 +2015,31 @@ function enterGestorDashboard(gestor){
 }
 
 function enterAdmin(){
+  isViewerMode = false;
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('admin-dashboard').style.display = 'block';
+  document.getElementById('admin-access-panel').style.display = '';
+  const toggleBtn = document.getElementById('admin-toggle-valores-btn');
+  if(toggleBtn) toggleBtn.style.display = '';
   renderAdminBanner();
   renderAdminGestorGrid();
   renderAdminGestorChart();
   renderAdminTableHead();
   renderAccessTable();
   refreshValoresToggleButton('admin-toggle-valores-btn');
+}
+
+function enterViewer(name){
+  isViewerMode = true;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-dashboard').style.display = 'block';
+  document.getElementById('admin-access-panel').style.display = 'none';
+  const toggleBtn = document.getElementById('admin-toggle-valores-btn');
+  if(toggleBtn) toggleBtn.style.display = 'none';
+  renderAdminBanner();
+  renderAdminGestorGrid();
+  renderAdminGestorChart();
+  renderAdminTableHead();
 }
 
 /* ================= ADMIN: GERENCIAR ACESSOS ================= */
@@ -1994,11 +2111,22 @@ async function refreshRegisteredSlugs(){
     registeredSlugs = new Set();
   }
 }
+let blockedSlugsSet = new Set();
+async function refreshBlockedSlugsSet(){
+  try{
+    const blocked = await getBlockedSlugs();
+    blockedSlugsSet = new Set(Object.keys(blocked).filter(s=>blocked[s]));
+  }catch(e){
+    blockedSlugsSet = new Set();
+  }
+}
 
 async function renderAccessTable(){
   const msg = document.getElementById('access-msg');
   msg.innerHTML = '<span class="spinner"></span> Carregando status de acesso...';
   await refreshRegisteredSlugs();
+  await refreshBlockedSlugsSet();
+  const viewerNames = await getViewerNames();
   msg.innerHTML = '';
 
   const tbody = document.getElementById('access-tbody');
@@ -2010,34 +2138,144 @@ async function renderAccessTable(){
   const gestorEntries = GESTOR_LIST.map(g=>({
     display: g.charAt(0)+g.slice(1).toLowerCase(), slug: gestorSlug(g), group: '—', tipo: 'Gestor'
   }));
+  const viewerEntries = viewerNames.map(n=>({
+    display: n, slug: 'viewer-' + slugify(n), group: '—', tipo: 'Visualizador', viewerName: n
+  }));
 
-  const combined = [...gestorEntries, ...tecEntries]
+  const combined = [...gestorEntries, ...viewerEntries, ...tecEntries]
     .filter(e=>e.display.toLowerCase().includes(term))
     .sort((a,b)=>{
-      if(a.tipo !== b.tipo) return a.tipo === 'Gestor' ? -1 : 1;
+      if(a.tipo !== b.tipo) return (a.tipo === 'Gestor' ? -1 : a.tipo === 'Visualizador' ? -0.5 : 1) - (b.tipo === 'Gestor' ? -1 : b.tipo === 'Visualizador' ? -0.5 : 1);
       return a.display.localeCompare(b.display);
     });
 
   tbody.innerHTML = combined.map(e=>{
     const has = registeredSlugs.has(e.slug);
-    const statusHTML = has
-      ? `<span class="badge" style="background:var(--good-dim);color:var(--good);">Senha criada</span>`
-      : `<span class="badge" style="background:var(--border-soft);color:var(--text-mute);">Aguardando 1º acesso</span>`;
+    const isBlocked = blockedSlugsSet.has(e.slug);
+    let statusHTML;
+    if(isBlocked){
+      statusHTML = `<span class="badge" style="background:var(--crit-dim);color:var(--crit);">Bloqueado</span>`;
+    } else if(has){
+      statusHTML = `<span class="badge" style="background:var(--good-dim);color:var(--good);">Senha criada</span>`;
+    } else {
+      statusHTML = `<span class="badge" style="background:var(--border-soft);color:var(--text-mute);">Aguardando 1º acesso</span>`;
+    }
     const tipoHTML = e.tipo === 'Gestor'
       ? `<span class="badge" style="background:var(--accent-dim);color:var(--accent);">Gestor</span>`
+      : e.tipo === 'Visualizador'
+      ? `<span class="badge" style="background:rgba(144,137,242,0.15);color:#9089f2;">Visualizador</span>`
       : `<span style="color:var(--text-mute);">Técnico</span>`;
+    const resetBtnHTML = has ? `<button class="back-btn reset-pw-btn" data-slug="${e.slug}" data-name="${e.display.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;">Redefinir senha</button>` : '';
+    const blockBtnHTML = isBlocked
+      ? `<button class="back-btn unblock-btn" data-slug="${e.slug}" data-name="${e.display.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;color:var(--good);">Desbloquear</button>`
+      : `<button class="back-btn block-btn" data-slug="${e.slug}" data-name="${e.display.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;color:var(--crit);">Bloquear acesso</button>`;
+    const removeViewerBtnHTML = e.tipo === 'Visualizador'
+      ? `<button class="back-btn edit-viewer-btn" data-viewer-name="${e.viewerName.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;">Editar nome</button>
+         <button class="back-btn remove-viewer-btn" data-viewer-name="${e.viewerName.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;color:var(--crit);">Remover acesso</button>`
+      : '';
     return `<tr>
       <td style="text-align:left;font-family:var(--font-body);color:var(--text);">${e.display}</td>
       <td>${tipoHTML}</td>
       <td>${e.group === '—' ? '—' : e.group.charAt(0)+e.group.slice(1).toLowerCase()}</td>
       <td>${statusHTML}</td>
-      <td>${has ? `<button class="back-btn reset-pw-btn" data-slug="${e.slug}" data-name="${e.display.replace(/"/g,'&quot;')}" style="padding:5px 10px;font-size:12px;">Redefinir senha</button>` : '—'}</td>
+      <td style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;">${resetBtnHTML}${blockBtnHTML}${removeViewerBtnHTML}</td>
     </tr>`;
   }).join('');
 
   tbody.querySelectorAll('.reset-pw-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> confirmResetPassword(btn));
   });
+  tbody.querySelectorAll('.block-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> confirmBlockToggle(btn, true));
+  });
+  tbody.querySelectorAll('.unblock-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> confirmBlockToggle(btn, false));
+  });
+  tbody.querySelectorAll('.edit-viewer-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const oldName = btn.dataset.viewerName;
+      const newName = window.prompt('Novo nome para este visualizador:', oldName);
+      if(!newName || !newName.trim() || newName.trim() === oldName) return;
+      const msg = document.getElementById('access-msg');
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      try{
+        await renameViewer(oldName, newName.trim());
+        msg.innerHTML = `<div class="msg ok">Nome atualizado para <b>${newName.trim()}</b>.</div>`;
+        renderAccessTable();
+      }catch(e){
+        msg.innerHTML = `<div class="msg err">Não consegui atualizar agora. Tente novamente.</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Editar nome';
+      }
+    });
+  });
+  tbody.querySelectorAll('.remove-viewer-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const name = btn.dataset.viewerName;
+      if(btn.dataset.confirming !== '1'){
+        btn.dataset.confirming = '1';
+        btn.textContent = 'Confirmar? clique de novo';
+        setTimeout(()=>{
+          if(btn.dataset.confirming === '1'){
+            btn.dataset.confirming = '0';
+            btn.textContent = 'Remover acesso';
+          }
+        }, 4000);
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Removendo...';
+      const msg = document.getElementById('access-msg');
+      try{
+        await removeViewerName(name);
+        msg.innerHTML = `<div class="msg ok">Acesso de visualização de <b>${name}</b> removido.</div>`;
+        renderAccessTable();
+      }catch(e){
+        msg.innerHTML = `<div class="msg err">Não consegui remover agora. Tente novamente.</div>`;
+        btn.disabled = false;
+        btn.dataset.confirming = '0';
+        btn.textContent = 'Remover acesso';
+      }
+    });
+  });
+}
+
+function confirmBlockToggle(btn, wantBlock){
+  if(btn.dataset.confirming === '1'){
+    doBlockToggle(btn, wantBlock);
+    return;
+  }
+  btn.dataset.confirming = '1';
+  const original = btn.textContent;
+  btn.dataset.originalText = original;
+  btn.textContent = 'Confirmar? clique de novo';
+  setTimeout(()=>{
+    if(btn.dataset.confirming === '1'){
+      btn.dataset.confirming = '0';
+      btn.textContent = btn.dataset.originalText;
+    }
+  }, 4000);
+}
+
+async function doBlockToggle(btn, wantBlock){
+  const slug = btn.dataset.slug;
+  const name = btn.dataset.name;
+  const msg = document.getElementById('access-msg');
+  btn.disabled = true;
+  btn.textContent = wantBlock ? 'Bloqueando...' : 'Desbloqueando...';
+  try{
+    await setSlugBlocked(slug, wantBlock);
+    msg.innerHTML = wantBlock
+      ? `<div class="msg err">Acesso de <b>${name}</b> bloqueado. A pessoa não conseguirá mais entrar nem criar senha nova.</div>`
+      : `<div class="msg ok">Acesso de <b>${name}</b> desbloqueado.</div>`;
+    renderAccessTable();
+  }catch(e){
+    msg.innerHTML = `<div class="msg err">Não consegui atualizar agora. Tente novamente.</div>`;
+    btn.disabled = false;
+    btn.dataset.confirming = '0';
+    btn.textContent = btn.dataset.originalText;
+  }
 }
 
 function confirmResetPassword(btn){
@@ -2079,6 +2317,26 @@ document.getElementById('access-panel-toggle').addEventListener('click', ()=>{
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
   arrow.textContent = isOpen ? 'Expandir ▾' : 'Recolher ▴';
+});
+
+document.getElementById('create-viewer-btn').addEventListener('click', async ()=>{
+  const input = document.getElementById('new-viewer-name');
+  const msg = document.getElementById('create-viewer-msg');
+  const name = (input.value || '').trim();
+  if(!name){ msg.innerHTML = '<span style="color:var(--crit);">Digite um nome.</span>'; return; }
+  const btn = document.getElementById('create-viewer-btn');
+  btn.disabled = true;
+  btn.textContent = 'Criando...';
+  try{
+    await addViewerName(name);
+    msg.innerHTML = `<span style="color:var(--good);">Acesso de visualização criado para "${name}".</span>`;
+    input.value = '';
+    renderAccessTable();
+  }catch(e){
+    msg.innerHTML = '<span style="color:var(--crit);">Não foi possível criar agora. Tente novamente.</span>';
+  }
+  btn.disabled = false;
+  btn.textContent = '+ Criar acesso';
 });
 
 document.getElementById('access-search').addEventListener('input', (e)=>{
