@@ -272,7 +272,7 @@
   .badge{display:inline-block;min-width:34px;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:600;text-align:center;}
   .table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);padding:6px 6px 2px;}
 
-  tr.tech-detail-row td{padding:0;border-bottom:1px solid var(--border);}
+  tr.tech-detail-row td{padding:0;border-bottom:1px solid var(--border);white-space:normal;}
   .tech-detail{
     background:var(--bg-elev);padding:20px 22px 22px;
     display:grid;grid-template-columns:1.15fr 1fr;gap:28px;
@@ -1074,8 +1074,12 @@ function parseRodizioRows(rows){
 function attachAreaDataToTecs(){
   TECS.forEach(t=>{
     const areas = areaDataBySlug[t.slug] || {};
+    const totalAreas = Object.values(areas).reduce((s,v)=>s+v, 0);
     const sorted = Object.entries(areas).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    t.areasTop3 = sorted.map(([code,qty])=>({code, name: AREA_NAME_MAP[code]||code, qty}));
+    t.areasTop3 = sorted.map(([code,qty])=>({
+      code, name: AREA_NAME_MAP[code]||code, qty,
+      pct: totalAreas > 0 ? (qty/totalAreas*100) : 0
+    }));
   });
 }
 async function tryLoadAreaData(){
@@ -1669,7 +1673,7 @@ const TABLE_COLS = [
   {key:'total_geral', label:'Ativ. Totais', sort:(t)=>t.total_geral, fmt:(t)=>fmtInt(t.total_geral)},
   {key:'cq', label:'CQ', sort:(t)=>t.cq, fmt:(t)=>fmtInt(t.cq)},
   {key:'valor', label:'Valor', sort:(t)=>computeValorReceber(t).total, fmt:(t)=>fmtBRL(computeValorReceber(t).total)},
-  {key:'areas', label:'Áreas (Top 3)', sort:(t)=>(t.areasTop3 && t.areasTop3[0]) ? t.areasTop3[0].qty : 0, fmt:(t)=> (t.areasTop3 && t.areasTop3.length) ? t.areasTop3.map(a=>`${a.name} (${a.qty})`).join(' · ') : '—'},
+  {key:'areas', label:'Áreas (Top 3)', sort:(t)=>(t.areasTop3 && t.areasTop3[0]) ? t.areasTop3[0].qty : 0, fmt:(t)=> (t.areasTop3 && t.areasTop3.length) ? t.areasTop3.map(a=>`${a.name} (${a.qty} · ${a.pct.toFixed(0)}%)`).join(' · ') : '—'},
 ];
 
 function adminTechDetailHTML(t){
@@ -1701,13 +1705,20 @@ function adminTechDetailHTML(t){
         <div class="vol-grid">${volHTML}</div>
         ${t.areasTop3 && t.areasTop3.length ? `
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-            <h4 style="margin:0 0 8px;">Áreas (Top 3)</h4>
-            ${t.areasTop3.map(a=>`
-              <div class="ind-row">
-                <span class="iname">${a.name}</span>
-                <span class="ival">${a.qty} atividades</span>
-              </div>
-            `).join('')}
+            <h4 style="margin:0 0 10px;">Áreas (Top 3)</h4>
+            ${t.areasTop3.map((a,i)=>{
+              const medals = ['🥇','🥈','🥉'];
+              const barColors = ['var(--accent)','#9089f2','#f2a93b'];
+              return `
+                <div style="margin-bottom:10px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:13px;color:var(--text);">${medals[i]||''} ${a.name}</span>
+                    <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--text-soft);">${a.qty} <span style="color:var(--text-mute);">(${a.pct.toFixed(0)}%)</span></span>
+                  </div>
+                  <div class="ind-bar-track"><div class="ind-bar-fill" style="width:${a.pct.toFixed(0)}%;background:${barColors[i]||'var(--text-mute)'};"></div></div>
+                </div>
+              `;
+            }).join('')}
           </div>
         ` : ''}
       </div>
